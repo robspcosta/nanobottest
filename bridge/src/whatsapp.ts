@@ -15,6 +15,8 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
+import axios from 'axios';
+import FormData from 'form-data';
 
 const VERSION = '0.1.0';
 
@@ -25,11 +27,6 @@ export interface InboundMessage {
   content: string;
   timestamp: number;
   isGroup: boolean;
-  media?: {
-    type: 'audio' | 'image' | 'document';
-    data: string; // base64
-    mimetype: string;
-  };
 }
 
 export interface WhatsAppClientOptions {
@@ -123,50 +120,53 @@ export class WhatsAppClient {
         if (msg.key.remoteJid === 'status@broadcast') continue;
 
         const content = this.extractMessageContent(msg);
-        if (!content) continue;
+        if (!content && !msg.message?.audioMessage && !msg.message?.viewOnceMessage?.message?.audioMessage && !msg.message?.viewOnceMessageV2?.message?.audioMessage) continue;
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
 
-        // Extract media if present
-        let mediaData: any = undefined;
+        // NEW: Handle Audio Transcription directly in the Bridge (Node.js)
         const message = msg.message;
         const audio = message?.audioMessage || message?.viewOnceMessage?.message?.audioMessage || message?.viewOnceMessageV2?.message?.audioMessage;
-        const image = message?.imageMessage || message?.viewOnceMessage?.message?.imageMessage || message?.viewOnceMessageV2?.message?.imageMessage;
+        let finalContent = content;
 
-        if (audio || image) {
+        if (audio && process.env.GROQ_API_KEY) {
           try {
-            const mediaType = audio ? 'audio' : 'image';
-            const senderId = msg.key.remoteJid || 'unknown';
-            console.log(`📥 Downloading ${mediaType} from ${senderId}...`);
-            const stream = await downloadContentFromMessage(
-              audio || image,
-              mediaType === 'audio' ? 'audio' : 'image'
-            );
-            let chunks: Uint8Array[] = [];
+            const sender = msg.key.remoteJid || 'unknown';
+            console.log(`🎙️ Transcribing audio from ${sender}...`);
+            const stream = await downloadContentFromMessage(audio, 'audio');
+            let buffer = Buffer.from([]);
             for await (const chunk of stream) {
-              chunks.push(chunk);
+              buffer = Buffer.concat([buffer, chunk]);
             }
-            const buffer = Buffer.concat(chunks);
-            mediaData = {
-              type: mediaType,
-              data: buffer.toString('base64'),
-              mimetype: (audio || image).mimetype
-            };
-            console.log(`✅ ${mediaType} downloaded (${buffer.length} bytes) from ${senderId}`);
-          } catch (e) {
-            console.error('❌ Failed to download media:', e);
+
+            const formData = new FormData();
+            formData.append('file', buffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
+            formData.append('model', 'whisper-large-v3');
+
+            const response = await axios.post('https://api.groq.com/openai/v1/audio/transcriptions', formData, {
+              headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+              },
+            });
+
+            if (response.data && response.data.text) {
+              finalContent = `[Transcrição: ${response.data.text}]`;
+              console.log(`✅ Transcription success: ${response.data.text}`);
+            }
+          } catch (e: any) {
+            console.error('❌ Transcription failed:', e.response?.data || e.message);
+            finalContent = '[Áudio: Falha na transcrição]';
           }
         }
-
 
         this.options.onMessage({
           id: msg.key.id || '',
           sender: msg.key.remoteJid || '',
           pn: msg.key.remoteJidAlt || '',
-          content,
+          content: finalContent,
           timestamp: msg.messageTimestamp as number,
           isGroup,
-          media: mediaData,
         });
       }
     });
