@@ -119,7 +119,7 @@ export class WhatsAppClient {
         // Skip status updates
         if (msg.key.remoteJid === 'status@broadcast') continue;
 
-        const content = this.extractMessageContent(msg);
+        const content = this.extractMessageContent(msg) || '';
         if (!content && !msg.message?.audioMessage && !msg.message?.viewOnceMessage?.message?.audioMessage && !msg.message?.viewOnceMessageV2?.message?.audioMessage) continue;
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
@@ -127,7 +127,7 @@ export class WhatsAppClient {
         // NEW: Handle Audio Transcription directly in the Bridge (Node.js)
         const message = msg.message;
         const audio = message?.audioMessage || message?.viewOnceMessage?.message?.audioMessage || message?.viewOnceMessageV2?.message?.audioMessage;
-        let finalContent = content;
+        let finalContent: string = content;
 
         if (audio && process.env.GROQ_API_KEY) {
           try {
@@ -172,9 +172,9 @@ export class WhatsAppClient {
     });
   }
 
-  private extractMessageContent(msg: any): string | null {
+  private extractMessageContent(msg: any): string {
     const message = msg.message;
-    if (!message) return null;
+    if (!message) return '';
 
     // Text message
     if (message.conversation) {
@@ -206,7 +206,7 @@ export class WhatsAppClient {
       return `[Voice Message]`;
     }
 
-    return null;
+    return '';
   }
 
   async sendMessage(to: string, text: string): Promise<void> {
