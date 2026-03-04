@@ -136,23 +136,28 @@ export class WhatsAppClient {
         if (audio || image) {
           try {
             const mediaType = audio ? 'audio' : 'image';
+            const senderId = msg.key.remoteJid || 'unknown';
+            console.log(`📥 Downloading ${mediaType} from ${senderId}...`);
             const stream = await downloadContentFromMessage(
               audio || image,
-              mediaType
+              mediaType === 'audio' ? 'audio' : 'image'
             );
-            let buffer = Buffer.from([]);
+            let chunks: Uint8Array[] = [];
             for await (const chunk of stream) {
-              buffer = Buffer.concat([buffer, chunk]);
+              chunks.push(chunk);
             }
+            const buffer = Buffer.concat(chunks);
             mediaData = {
               type: mediaType,
               data: buffer.toString('base64'),
               mimetype: (audio || image).mimetype
             };
+            console.log(`✅ ${mediaType} downloaded (${buffer.length} bytes) from ${senderId}`);
           } catch (e) {
-            console.error('Failed to download media:', e);
+            console.error('❌ Failed to download media:', e);
           }
         }
+
 
         this.options.onMessage({
           id: msg.key.id || '',
