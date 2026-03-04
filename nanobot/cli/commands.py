@@ -421,14 +421,11 @@ def gateway(
                 text=True
             )
             
-            # Non-blocking log relay for the bridge
+            # Relay all bridge output to the console for QR code visibility
             def log_bridge():
                 if bridge_process and bridge_process.stdout:
                     for line in iter(bridge_process.stdout.readline, ""):
-                        if "QR code" in line:
-                            console.print(f"[yellow]WhatsApp QR:[/yellow] {line.strip()}")
-                        elif "Connected" in line:
-                            console.print(f"[green]✓ WhatsApp bridge:[/green] {line.strip()}")
+                        console.print(line.strip())
             
             import threading
             threading.Thread(target=log_bridge, daemon=True).start()
