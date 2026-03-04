@@ -86,8 +86,17 @@ class WhatsAppChannel(BaseChannel):
             # Ensure chat_id is a proper WhatsApp JID
             to_jid = msg.chat_id
             if "@" not in to_jid:
-                # Clean non-digit characters and append the standard WhatsApp domain
+                # Clean non-digit characters
                 clean_id = "".join(filter(str.isdigit, to_jid))
+                
+                # Heuristic for Brazilian numbers: 
+                # If starts with 55 and has only 12 digits (missing 9th digit), 
+                # or if user provided only 10/11 digits (missing 55).
+                if len(clean_id) == 10: # E.g. 5192658130 -> add 55
+                    clean_id = f"55{clean_id}"
+                elif len(clean_id) == 11 and not clean_id.startswith("55"): # E.g. 51992658130 -> add 55
+                    clean_id = f"55{clean_id}"
+                
                 to_jid = f"{clean_id}@s.whatsapp.net"
             
             payload = {
