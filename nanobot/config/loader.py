@@ -96,6 +96,11 @@ def _apply_env_overrides(config: Config) -> None:
         elif not config.channels.whatsapp.allow_from:
             config.channels.whatsapp.allow_from = ["*"]
 
+        if _is_true("WHATSAPP_SECRETARY_MODE"):
+            config.channels.whatsapp.secretary_mode = True
+        if os.environ.get("WHATSAPP_SECRETARY_TARGET"):
+            config.channels.whatsapp.secretary_target = os.environ.get("WHATSAPP_SECRETARY_TARGET")
+
     # Agent defaults
     env_provider = os.environ.get("LLM_PROVIDER")
     if env_provider:

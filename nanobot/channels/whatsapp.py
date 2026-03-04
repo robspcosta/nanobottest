@@ -144,6 +144,22 @@ class WhatsAppChannel(BaseChannel):
                 logger.info("Voice message received from {}, but direct download from bridge is not yet supported.", sender_id)
                 content = "[Voice Message: Transcription not available for WhatsApp yet]"
 
+            # Secretary Mode: Forward incoming message to the owner's Telegram
+            if self.config.secretary_mode and self.config.secretary_target:
+                # Format: "channel:chat_id"
+                if ":" in self.config.secretary_target:
+                    target_channel, target_chat_id = self.config.secretary_target.split(":", 1)
+                    forward_text = (
+                        f"🔔 *Mensagem no WhatsApp*\n"
+                        f"*De:* {sender_id}\n"
+                        f"*Conteúdo:* {content}"
+                    )
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=target_channel,
+                        chat_id=target_chat_id,
+                        content=forward_text
+                    ))
+
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=sender,  # Use full LID for replies

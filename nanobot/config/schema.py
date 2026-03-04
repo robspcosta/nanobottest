@@ -21,6 +21,8 @@ class WhatsAppConfig(Base):
     bridge_url: str = "ws://localhost:3001"
     bridge_token: str = ""  # Shared token for bridge auth (optional, recommended)
     allow_from: list[str] = Field(default_factory=list)  # Allowed phone numbers
+    secretary_mode: bool = False  # If true, forward incoming messages to another channel
+    secretary_target: str = ""  # Target chat ID for forwarding (e.g. "telegram:1457074053")
 
 
 class TelegramConfig(Base):
