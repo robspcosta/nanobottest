@@ -28,18 +28,62 @@ def load_config(config_path: Path | None = None) -> Config:
         Loaded configuration object.
     """
     path = config_path or get_config_path()
+    config = None
 
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             data = _migrate_config(data)
-            return Config.model_validate(data)
+            config = Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
             print("Using default configuration.")
 
-    return Config()
+    if config is None:
+        config = Config()
+
+    # Apply environment variable overrides for easier Docker/Cloud deployment
+    _apply_env_overrides(config)
+
+    return config
+
+
+def _apply_env_overrides(config: Config) -> None:
+    """Apply standard environment variables as fallbacks if not set in config."""
+    import os
+
+    # Map standard environment variable names to config attributes
+    provider_env_map = {
+        "GROQ_API_KEY": ("providers", "groq", "api_key"),
+        "GEMINI_API_KEY": ("providers", "gemini", "api_key"),
+        "OPENAI_API_KEY": ("providers", "openai", "api_key"),
+        "ANTHROPIC_API_KEY": ("providers", "anthropic", "api_key"),
+        "OPENROUTER_API_KEY": ("providers", "openrouter", "api_key"),
+        "DEEPSEEK_API_KEY": ("providers", "deepseek", "api_key"),
+    }
+
+    for env_var, path in provider_env_map.items():
+        val = os.environ.get(env_var)
+        if val:
+            # Only override if not already set (or if it's the empty default)
+            target = config
+            for step in path[:-1]:
+                target = getattr(target, step)
+            
+            current_val = getattr(target, path[-1])
+            if not current_val:
+                setattr(target, path[-1], val)
+
+    # Agent defaults
+    if os.environ.get("LLM_PROVIDER") and config.agents.defaults.provider == "auto":
+        config.agents.defaults.provider = os.environ.get("LLM_PROVIDER")
+    
+    # Model can be overridden always if provided via ENV
+    env_model = os.environ.get("MODEL") or os.environ.get("LLM_MODEL")
+    if env_model:
+        config.agents.defaults.model = env_model
+
 
 
 def save_config(config: Config, config_path: Path | None = None) -> None:
