@@ -12,13 +12,17 @@ x-common-config: &common-config
     - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
     - LLM_PROVIDER=${LLM_PROVIDER:-}
     - MODEL=${MODEL:-}
-
+    - TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-}
+    - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+    - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM:-}
+    - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-}
+    - WHATSAPP_ALLOW_FROM=${WHATSAPP_ALLOW_FROM:-}
 
 services:
   nanobot-gateway:
     container_name: nanobot-gateway
     <<: *common-config
-    command: ["gateway"]
+    command: [ "gateway" ]
     restart: unless-stopped
     ports:
       - 18790:18790
@@ -30,11 +34,11 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-  
+
   nanobot-cli:
     <<: *common-config
     profiles:
       - cli
-    command: ["status"]
+    command: [ "status" ]
     stdin_open: true
     tty: true

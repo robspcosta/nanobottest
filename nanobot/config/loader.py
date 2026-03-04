@@ -75,6 +75,22 @@ def _apply_env_overrides(config: Config) -> None:
             if not current_val:
                 setattr(target, path[-1], val)
 
+    # Channels overrides
+    if os.environ.get("TELEGRAM_ENABLED") == "true":
+        config.channels.telegram.enabled = True
+    if os.environ.get("TELEGRAM_TOKEN"):
+        config.channels.telegram.token = os.environ.get("TELEGRAM_TOKEN")
+    if os.environ.get("TELEGRAM_ALLOW_FROM"):
+        # Expecting comma separated or single value
+        val = os.environ.get("TELEGRAM_ALLOW_FROM")
+        config.channels.telegram.allow_from = [x.strip() for x in val.split(",")]
+
+    if os.environ.get("WHATSAPP_ENABLED") == "true":
+        config.channels.whatsapp.enabled = True
+    if os.environ.get("WHATSAPP_ALLOW_FROM"):
+        val = os.environ.get("WHATSAPP_ALLOW_FROM")
+        config.channels.whatsapp.allow_from = [x.strip() for x in val.split(",")]
+
     # Agent defaults
     if os.environ.get("LLM_PROVIDER") and config.agents.defaults.provider == "auto":
         config.agents.defaults.provider = os.environ.get("LLM_PROVIDER")
