@@ -139,10 +139,38 @@ class WhatsAppChannel(BaseChannel):
             sender_id = user_id.split("@")[0] if "@" in user_id else user_id
             logger.info("Sender {}", sender)
 
-            # Handle voice transcription if it's a voice message
-            if content == "[Voice Message]":
-                logger.info("Voice message received from {}, but direct download from bridge is not yet supported.", sender_id)
-                content = "[Voice Message: Transcription not available for WhatsApp yet]"
+            # Handle media (audio/image)
+            media = data.get("media")
+            if media:
+                media_type = media.get("type")
+                if media_type == "audio":
+                    import base64
+                    import tempfile
+                    from nanobot.providers.transcription import GroqTranscriptionProvider
+                    
+                    try:
+                        audio_data = base64.b64decode(media.get("data"))
+                        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+                            tmp.write(audio_data)
+                            tmp_path = tmp.name
+                            
+                        logger.info("Transcribing voice message from {}...", sender_id)
+                        transcriber = GroqTranscriptionProvider()
+                        transcript = await transcriber.transcribe(tmp_path)
+                        
+                        import os
+                        os.unlink(tmp_path)
+                        
+                        if transcript:
+                            content = transcript
+                            logger.info("Transcription: {}", content)
+                        else:
+                            content = "[Voice Message: Transcription failed]"
+                    except Exception as e:
+                        logger.error("Failed to transcribe WhatsApp audio: {}", e)
+                        content = "[Voice Message: Error during transcription]"
+                elif media_type == "image":
+                    content = f"[Image: {content or 'No caption'}]"
 
             # Secretary Mode: Forward incoming message to the owner's Telegram
             if self.config.secretary_mode and self.config.secretary_target:

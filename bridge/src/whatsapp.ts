@@ -9,6 +9,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  downloadContentFromMessage,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -24,6 +25,11 @@ export interface InboundMessage {
   content: string;
   timestamp: number;
   isGroup: boolean;
+  media?: {
+    type: 'audio' | 'image' | 'document';
+    data: string; // base64
+    mimetype: string;
+  };
 }
 
 export interface WhatsAppClientOptions {
@@ -121,6 +127,33 @@ export class WhatsAppClient {
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
 
+        // Extract media if present
+        let mediaData: any = undefined;
+        const message = msg.message;
+        const audio = message?.audioMessage || message?.viewOnceMessage?.message?.audioMessage || message?.viewOnceMessageV2?.message?.audioMessage;
+        const image = message?.imageMessage || message?.viewOnceMessage?.message?.imageMessage || message?.viewOnceMessageV2?.message?.imageMessage;
+
+        if (audio || image) {
+          try {
+            const mediaType = audio ? 'audio' : 'image';
+            const stream = await downloadContentFromMessage(
+              audio || image,
+              mediaType
+            );
+            let buffer = Buffer.from([]);
+            for await (const chunk of stream) {
+              buffer = Buffer.concat([buffer, chunk]);
+            }
+            mediaData = {
+              type: mediaType,
+              data: buffer.toString('base64'),
+              mimetype: (audio || image).mimetype
+            };
+          } catch (e) {
+            console.error('Failed to download media:', e);
+          }
+        }
+
         this.options.onMessage({
           id: msg.key.id || '',
           sender: msg.key.remoteJid || '',
@@ -128,6 +161,7 @@ export class WhatsAppClient {
           content,
           timestamp: msg.messageTimestamp as number,
           isGroup,
+          media: mediaData,
         });
       }
     });
