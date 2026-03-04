@@ -255,6 +255,8 @@ def gateway(
     from nanobot.cron.types import CronJob
     from nanobot.heartbeat.service import HeartbeatService
     from nanobot.session.manager import SessionManager
+    import subprocess
+    import signal
 
     if verbose:
         import logging
@@ -399,6 +401,41 @@ def gateway(
 
     console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s")
 
+    bridge_process = None
+    if config.channels.whatsapp.enabled:
+        try:
+            bridge_dir = _get_bridge_dir()
+            console.print(f"[cyan]🚀 Starting WhatsApp bridge in {bridge_dir}...[/cyan]")
+            
+            env = {**os.environ}
+            if config.channels.whatsapp.bridge_token:
+                env["BRIDGE_TOKEN"] = config.channels.whatsapp.bridge_token
+            
+            # Start the bridge in the background
+            bridge_process = subprocess.Popen(
+                ["npm", "start"],
+                cwd=bridge_dir,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            
+            # Non-blocking log relay for the bridge
+            def log_bridge():
+                if bridge_process and bridge_process.stdout:
+                    for line in iter(bridge_process.stdout.readline, ""):
+                        if "QR code" in line:
+                            console.print(f"[yellow]WhatsApp QR:[/yellow] {line.strip()}")
+                        elif "Connected" in line:
+                            console.print(f"[green]✓ WhatsApp bridge:[/green] {line.strip()}")
+            
+            import threading
+            threading.Thread(target=log_bridge, daemon=True).start()
+            
+        except Exception as e:
+            console.print(f"[red]Failed to start WhatsApp bridge: {e}[/red]")
+
     async def run():
         try:
             await cron.start()
@@ -415,6 +452,13 @@ def gateway(
             cron.stop()
             agent.stop()
             await channels.stop_all()
+            if bridge_process:
+                console.print("[dim]Stopping WhatsApp bridge...[/dim]")
+                bridge_process.terminate()
+                try:
+                    bridge_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    bridge_process.kill()
 
     asyncio.run(run())
 
@@ -706,10 +750,17 @@ def _get_bridge_dir() -> Path:
 
     # User's bridge location
     user_bridge = Path.home() / ".nanobot" / "bridge"
-
-    # Check if already built
     if (user_bridge / "dist" / "index.js").exists():
         return user_bridge
+
+    # Check for pre-built bridge in common Docker/source locations
+    app_bridge = Path("/app/bridge")
+    if (app_bridge / "dist" / "index.js").exists():
+        return app_bridge
+
+    pkg_bridge = Path(__file__).parent.parent / "bridge"
+    if (pkg_bridge / "dist" / "index.js").exists():
+        return pkg_bridge
 
     # Check for npm
     if not shutil.which("npm"):
