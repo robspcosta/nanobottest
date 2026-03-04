@@ -83,9 +83,16 @@ class WhatsAppChannel(BaseChannel):
             return
 
         try:
+            # Ensure chat_id is a proper WhatsApp JID
+            to_jid = msg.chat_id
+            if "@" not in to_jid:
+                # Clean non-digit characters and append the standard WhatsApp domain
+                clean_id = "".join(filter(str.isdigit, to_jid))
+                to_jid = f"{clean_id}@s.whatsapp.net"
+            
             payload = {
                 "type": "send",
-                "to": msg.chat_id,
+                "to": to_jid,
                 "text": msg.content
             }
             await self._ws.send(json.dumps(payload, ensure_ascii=False))
