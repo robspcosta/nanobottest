@@ -53,6 +53,10 @@ def _apply_env_overrides(config: Config) -> None:
     """Apply standard environment variables as fallbacks if not set in config."""
     import os
 
+    def _is_true(env_name: str) -> bool:
+        val = os.environ.get(env_name, "").lower()
+        return val in ("true", "1", "yes", "on")
+
     # Map standard environment variable names to config attributes
     provider_env_map = {
         "GROQ_API_KEY": ("providers", "groq", "api_key"),
@@ -66,39 +70,41 @@ def _apply_env_overrides(config: Config) -> None:
     for env_var, path in provider_env_map.items():
         val = os.environ.get(env_var)
         if val:
-            # Only override if not already set (or if it's the empty default)
             target = config
             for step in path[:-1]:
                 target = getattr(target, step)
-            
-            current_val = getattr(target, path[-1])
-            if not current_val:
-                setattr(target, path[-1], val)
+            setattr(target, path[-1], val)
 
     # Channels overrides
-    if os.environ.get("TELEGRAM_ENABLED") == "true":
+    if _is_true("TELEGRAM_ENABLED"):
         config.channels.telegram.enabled = True
-    if os.environ.get("TELEGRAM_TOKEN"):
-        config.channels.telegram.token = os.environ.get("TELEGRAM_TOKEN")
-    if os.environ.get("TELEGRAM_ALLOW_FROM"):
-        # Expecting comma separated or single value
-        val = os.environ.get("TELEGRAM_ALLOW_FROM")
-        config.channels.telegram.allow_from = [x.strip() for x in val.split(",")]
+        if os.environ.get("TELEGRAM_TOKEN"):
+            config.channels.telegram.token = os.environ.get("TELEGRAM_TOKEN")
+        
+        # Security: Nanobot fails if allow_from is empty. Default to ["*"] if not set.
+        allow_from = os.environ.get("TELEGRAM_ALLOW_FROM")
+        if allow_from:
+            config.channels.telegram.allow_from = [x.strip() for x in allow_from.split(",")]
+        elif not config.channels.telegram.allow_from:
+            config.channels.telegram.allow_from = ["*"]
 
-    if os.environ.get("WHATSAPP_ENABLED") == "true":
+    if _is_true("WHATSAPP_ENABLED"):
         config.channels.whatsapp.enabled = True
-    if os.environ.get("WHATSAPP_ALLOW_FROM"):
-        val = os.environ.get("WHATSAPP_ALLOW_FROM")
-        config.channels.whatsapp.allow_from = [x.strip() for x in val.split(",")]
+        allow_from = os.environ.get("WHATSAPP_ALLOW_FROM")
+        if allow_from:
+            config.channels.whatsapp.allow_from = [x.strip() for x in allow_from.split(",")]
+        elif not config.channels.whatsapp.allow_from:
+            config.channels.whatsapp.allow_from = ["*"]
 
     # Agent defaults
-    if os.environ.get("LLM_PROVIDER") and config.agents.defaults.provider == "auto":
-        config.agents.defaults.provider = os.environ.get("LLM_PROVIDER")
+    env_provider = os.environ.get("LLM_PROVIDER")
+    if env_provider:
+        config.agents.defaults.provider = env_provider
     
-    # Model can be overridden always if provided via ENV
     env_model = os.environ.get("MODEL") or os.environ.get("LLM_MODEL")
     if env_model:
         config.agents.defaults.model = env_model
+
 
 
 
