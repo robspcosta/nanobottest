@@ -124,34 +124,33 @@ export class WhatsAppClient {
         if (msg.key.remoteJid === 'status@broadcast') continue;
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
-
-        const content = this.extractMessageContent(msg);
         const message = msg.message;
-        const audio = message?.audioMessage || message?.viewOnceMessage?.message?.audioMessage || message?.viewOnceMessageV2?.message?.audioMessage;
-        const image = message?.imageMessage || message?.viewOnceMessage?.message?.imageMessage || message?.viewOnceMessageV2?.message?.imageMessage;
+        const mediaFound = this.getMedia(message);
 
-        const mediaObj = audio || image;
+        let content = '';
+        if (message?.conversation) content = message.conversation;
+        else if (message?.extendedTextMessage?.text) content = message.extendedTextMessage.text;
+        else if (mediaFound?.obj?.caption) content = mediaFound.obj.caption;
+
         let mediaData: any = undefined;
 
-        if (mediaObj) {
+        if (mediaFound) {
           try {
-            const mediaType = audio ? 'audio' : 'image';
-            const stream = await downloadContentFromMessage(
-              mediaObj,
-              mediaType
-            );
+            console.log(`📥 Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
+            const stream = await downloadContentFromMessage(mediaFound.obj, mediaFound.type);
             let chunks: Uint8Array[] = [];
             for await (const chunk of stream) {
               chunks.push(chunk);
             }
             const buffer = Buffer.concat(chunks);
             mediaData = {
-              type: mediaType,
+              type: mediaFound.type,
               data: buffer.toString('base64'),
-              mimetype: mediaObj.mimetype || ''
+              mimetype: mediaFound.obj.mimetype || ''
             };
+            console.log(`✅ Download complete: ${buffer.length} bytes`);
           } catch (e) {
-            console.error('Failed to download media:', e);
+            console.error('❌ Failed to download media:', e);
           }
         }
 
@@ -159,7 +158,7 @@ export class WhatsAppClient {
           id: msg.key.id || '',
           sender: msg.key.remoteJid || '',
           pn: msg.key.remoteJidAlt || '',
-          content: content || (audio ? '[Voice Message]' : ''),
+          content: content || (mediaFound?.type === 'audio' ? '[Voice Message]' : ''),
           timestamp: msg.messageTimestamp as number,
           isGroup,
           media: mediaData,
@@ -168,41 +167,22 @@ export class WhatsAppClient {
     });
   }
 
-  private extractMessageContent(msg: any): string {
-    const message = msg.message;
-    if (!message) return '';
+  private getMedia(message: any): { type: 'audio' | 'image' | 'video' | 'document'; obj: any } | null {
+    if (!message) return null;
+    if (message.audioMessage) return { type: 'audio', obj: message.audioMessage };
+    if (message.imageMessage) return { type: 'image', obj: message.imageMessage };
+    if (message.videoMessage) return { type: 'video', obj: message.videoMessage };
+    if (message.documentMessage) return { type: 'document', obj: message.documentMessage };
 
-    // Text message
-    if (message.conversation) {
-      return message.conversation;
-    }
+    // Handle nested messages (view once, ephemeral, etc)
+    const nested =
+      message.viewOnceMessage?.message ||
+      message.viewOnceMessageV2?.message ||
+      message.ephemeralMessage?.message ||
+      message.documentWithCaptionMessage?.message;
 
-    // Extended text (reply, link preview)
-    if (message.extendedTextMessage?.text) {
-      return message.extendedTextMessage.text;
-    }
-
-    // Image with caption
-    if (message.imageMessage?.caption) {
-      return `[Image] ${message.imageMessage.caption}`;
-    }
-
-    // Video with caption
-    if (message.videoMessage?.caption) {
-      return `[Video] ${message.videoMessage.caption}`;
-    }
-
-    // Document with caption
-    if (message.documentMessage?.caption) {
-      return `[Document] ${message.documentMessage.caption}`;
-    }
-
-    // Voice/Audio message
-    if (message.audioMessage) {
-      return `[Voice Message]`;
-    }
-
-    return '';
+    if (nested) return this.getMedia(nested);
+    return null;
   }
 
   async sendMessage(to: string, text: string): Promise<void> {
