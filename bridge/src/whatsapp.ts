@@ -10,6 +10,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   downloadContentFromMessage,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -144,14 +145,18 @@ export class WhatsAppClient {
         if (mediaFound) {
           try {
             console.log(`📥 [Bridge] Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
-            const stream = await downloadContentFromMessage(mediaFound.obj, mediaFound.type);
-            let chunks: Uint8Array[] = [];
-            for await (const chunk of stream) {
-              chunks.push(chunk);
-            }
-            const buffer = Buffer.concat(chunks);
 
-            if (buffer.length > 0) {
+            const buffer = await downloadMediaMessage(
+              msg,
+              'buffer',
+              {},
+              {
+                logger: pino({ level: 'silent' }),
+                reuploadRequest: this.sock?.updateMediaMessage
+              }
+            ) as Buffer;
+
+            if (buffer && buffer.length > 0) {
               console.log(`✅ [Bridge] Download successful: ${buffer.length} bytes`);
               mediaData = {
                 type: mediaFound.type,
@@ -159,18 +164,10 @@ export class WhatsAppClient {
                 mimetype: mediaFound.obj.mimetype || (mediaFound.type === 'audio' ? 'audio/ogg' : 'image/jpeg')
               };
             } else {
-              console.warn(`⚠️ [Bridge] Download returned empty buffer for ${mediaFound.type}`);
+              console.warn(`⚠️ [Bridge] Download result was empty for ${mediaFound.type}`);
             }
           } catch (e: any) {
-            console.error(`❌ [Bridge] Download failed:`, e.message);
-            this.options.onMessage({
-              id: msg.key.id || '',
-              sender: 'system',
-              pn: '',
-              content: `[System Error] Failed to download media: ${e.message}`,
-              timestamp: Date.now() / 1000,
-              isGroup: false
-            });
+            console.error(`❌ [Bridge] Download failed for ${mediaFound.type}:`, e.message);
           }
         }
 
