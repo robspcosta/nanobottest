@@ -124,36 +124,53 @@ export class WhatsAppClient {
         if (msg.key.remoteJid === 'status@broadcast') continue;
 
         const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
+
+        // Root message object
         const message = msg.message;
         const mediaFound = this.getMedia(message);
 
+        // 1. Determine Content
         let content = '';
         if (message?.conversation) content = message.conversation;
         else if (message?.extendedTextMessage?.text) content = message.extendedTextMessage.text;
         else if (mediaFound?.obj?.caption) content = mediaFound.obj.caption;
 
-        let mediaData: any = undefined;
+        if (!content && mediaFound?.type === 'audio') {
+          content = '[Voice Message]';
+        }
 
+        // 2. Handle Media Download
+        let mediaData: any = undefined;
         if (mediaFound) {
           try {
-            console.log(`📥 Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
-            console.log(`🔍 Media keys: ${Object.keys(mediaFound.obj).join(', ')}`);
-
+            console.log(`📥 [Bridge] Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
             const stream = await downloadContentFromMessage(mediaFound.obj, mediaFound.type);
             let chunks: Uint8Array[] = [];
             for await (const chunk of stream) {
               chunks.push(chunk);
             }
             const buffer = Buffer.concat(chunks);
-            console.log(`✅ Download complete: ${buffer.length} bytes`);
 
-            mediaData = {
-              type: mediaFound.type,
-              data: buffer.toString('base64'),
-              mimetype: mediaFound.obj.mimetype || ''
-            };
+            if (buffer.length > 0) {
+              console.log(`✅ [Bridge] Download successful: ${buffer.length} bytes`);
+              mediaData = {
+                type: mediaFound.type,
+                data: buffer.toString('base64'),
+                mimetype: mediaFound.obj.mimetype || (mediaFound.type === 'audio' ? 'audio/ogg' : 'image/jpeg')
+              };
+            } else {
+              console.warn(`⚠️ [Bridge] Download returned empty buffer for ${mediaFound.type}`);
+            }
           } catch (e: any) {
-            console.error(`❌ Failed to download ${mediaFound.type}:`, e.message);
+            console.error(`❌ [Bridge] Download failed:`, e.message);
+            this.options.onMessage({
+              id: msg.key.id || '',
+              sender: 'system',
+              pn: '',
+              content: `[System Error] Failed to download media: ${e.message}`,
+              timestamp: Date.now() / 1000,
+              isGroup: false
+            });
           }
         }
 
@@ -161,7 +178,7 @@ export class WhatsAppClient {
           id: msg.key.id || '',
           sender: msg.key.remoteJid || '',
           pn: msg.key.remoteJidAlt || '',
-          content: content || (mediaFound?.type === 'audio' ? '[Voice Message]' : ''),
+          content: content,
           timestamp: msg.messageTimestamp as number,
           isGroup,
           media: mediaData,
