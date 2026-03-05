@@ -119,9 +119,6 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
 
         if msg_type == "message":
-            logger.info("Raw message data from bridge: {}", {k: v for k, v in data.items() if k != 'media'})
-            if data.get('media'):
-                logger.info("Media detected: type={}, size={} chars", data['media'].get('type'), len(data['media'].get('data', '')))
             # Incoming message from WhatsApp
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatspp.net
             pn = data.get("pn", "")
@@ -190,6 +187,21 @@ class WhatsAppChannel(BaseChannel):
                         chat_id=target_chat_id,
                         content=forward_text
                     ))
+                    
+                    # Also inject into the target session's context so the LLM
+                    # knows which WhatsApp numbers recently messaged
+                    from nanobot.bus.events import InboundMessage
+                    context_msg = InboundMessage(
+                        channel="system",
+                        sender_id="whatsapp-secretary",
+                        chat_id=f"{target_channel}:{target_chat_id}",
+                        content=(
+                            f"[WhatsApp notification] A message was received on WhatsApp "
+                            f"from phone number {sender_id} (WhatsApp JID: {sender}). "
+                            f"Message content: {content}"
+                        ),
+                    )
+                    await self.bus.publish_inbound(context_msg)
 
             await self._handle_message(
                 sender_id=sender_id,
