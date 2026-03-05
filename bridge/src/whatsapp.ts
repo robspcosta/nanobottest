@@ -15,6 +15,7 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
+import { Buffer } from 'node:buffer';
 
 const VERSION = '0.1.0';
 
@@ -129,14 +130,15 @@ export class WhatsAppClient {
         const audio = message?.audioMessage || message?.viewOnceMessage?.message?.audioMessage || message?.viewOnceMessageV2?.message?.audioMessage;
         const image = message?.imageMessage || message?.viewOnceMessage?.message?.imageMessage || message?.viewOnceMessageV2?.message?.imageMessage;
 
+        const mediaObj = audio || image;
         let mediaData: any = undefined;
 
-        if (audio || image) {
+        if (mediaObj) {
           try {
             const mediaType = audio ? 'audio' : 'image';
             const stream = await downloadContentFromMessage(
-              audio || image,
-              mediaType === 'audio' ? 'audio' : 'image'
+              mediaObj,
+              mediaType
             );
             let chunks: Uint8Array[] = [];
             for await (const chunk of stream) {
@@ -146,7 +148,7 @@ export class WhatsAppClient {
             mediaData = {
               type: mediaType,
               data: buffer.toString('base64'),
-              mimetype: (audio || image).mimetype
+              mimetype: mediaObj.mimetype || ''
             };
           } catch (e) {
             console.error('Failed to download media:', e);
