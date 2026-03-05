@@ -119,6 +119,9 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
 
         if msg_type == "message":
+            logger.info("Raw message data from bridge: {}", {k: v for k, v in data.items() if k != 'media'})
+            if data.get('media'):
+                logger.info("Media detected: type={}, size={} chars", data['media'].get('type'), len(data['media'].get('data', '')))
             # Incoming message from WhatsApp
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatspp.net
             pn = data.get("pn", "")

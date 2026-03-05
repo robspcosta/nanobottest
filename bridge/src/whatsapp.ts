@@ -137,20 +137,23 @@ export class WhatsAppClient {
         if (mediaFound) {
           try {
             console.log(`📥 Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
+            console.log(`🔍 Media keys: ${Object.keys(mediaFound.obj).join(', ')}`);
+
             const stream = await downloadContentFromMessage(mediaFound.obj, mediaFound.type);
             let chunks: Uint8Array[] = [];
             for await (const chunk of stream) {
               chunks.push(chunk);
             }
             const buffer = Buffer.concat(chunks);
+            console.log(`✅ Download complete: ${buffer.length} bytes`);
+
             mediaData = {
               type: mediaFound.type,
               data: buffer.toString('base64'),
               mimetype: mediaFound.obj.mimetype || ''
             };
-            console.log(`✅ Download complete: ${buffer.length} bytes`);
-          } catch (e) {
-            console.error('❌ Failed to download media:', e);
+          } catch (e: any) {
+            console.error(`❌ Failed to download ${mediaFound.type}:`, e.message);
           }
         }
 
@@ -178,8 +181,13 @@ export class WhatsAppClient {
     const nested =
       message.viewOnceMessage?.message ||
       message.viewOnceMessageV2?.message ||
+      message.viewOnceMessageV2Extension?.message ||
       message.ephemeralMessage?.message ||
-      message.documentWithCaptionMessage?.message;
+      message.documentWithCaptionMessage?.message ||
+      message.editMessage?.message ||
+      message.templateMessage?.hydratedTemplate?.message ||
+      message.templateMessage?.hydratedDraftTemplate?.message ||
+      message.interactiveMessage?.body?.message;
 
     if (nested) return this.getMedia(nested);
     return null;
