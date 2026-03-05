@@ -128,7 +128,12 @@ export class WhatsAppClient {
 
         // Root message object
         const message = msg.message;
+
+        // Log ALL top-level keys of the message for debugging
+        console.log(`🔍 [Bridge] Message keys: ${message ? Object.keys(message).join(', ') : 'null'}`);
+
         const mediaFound = this.getMedia(message);
+        console.log(`🔍 [Bridge] getMedia result: ${mediaFound ? mediaFound.type : 'null'}`);
 
         // 1. Determine Content
         let content = '';
@@ -143,10 +148,11 @@ export class WhatsAppClient {
         // 2. Handle Media Download
         let mediaData: any = undefined;
         if (mediaFound) {
-          try {
-            console.log(`📥 [Bridge] Downloading ${mediaFound.type} from ${msg.key.remoteJid}...`);
+          console.log(`📥 [Bridge] Starting download of ${mediaFound.type}...`);
 
-            const buffer = await downloadMediaMessage(
+          try {
+            // Wrap download in a timeout to prevent hanging
+            const downloadPromise = downloadMediaMessage(
               msg,
               'buffer',
               {},
@@ -154,7 +160,13 @@ export class WhatsAppClient {
                 logger: pino({ level: 'silent' }),
                 reuploadRequest: this.sock?.updateMediaMessage
               }
-            ) as Buffer;
+            );
+
+            const timeoutPromise = new Promise<null>((_, reject) =>
+              setTimeout(() => reject(new Error('Download timed out after 15s')), 15000)
+            );
+
+            const buffer = await Promise.race([downloadPromise, timeoutPromise]) as Buffer | null;
 
             if (buffer && buffer.length > 0) {
               console.log(`✅ [Bridge] Download successful: ${buffer.length} bytes`);
@@ -164,12 +176,37 @@ export class WhatsAppClient {
                 mimetype: mediaFound.obj.mimetype || (mediaFound.type === 'audio' ? 'audio/ogg' : 'image/jpeg')
               };
             } else {
-              console.warn(`⚠️ [Bridge] Download result was empty for ${mediaFound.type}`);
+              console.warn(`⚠️ [Bridge] Download returned empty/null buffer`);
             }
           } catch (e: any) {
-            console.error(`❌ [Bridge] Download failed for ${mediaFound.type}:`, e.message);
+            console.error(`❌ [Bridge] downloadMediaMessage failed: ${e.message}`);
+
+            // Fallback: try downloadContentFromMessage
+            console.log(`🔄 [Bridge] Trying fallback download method...`);
+            try {
+              const stream = await downloadContentFromMessage(mediaFound.obj, mediaFound.type);
+              const chunks: Uint8Array[] = [];
+              for await (const chunk of stream) {
+                chunks.push(chunk);
+              }
+              const fallbackBuffer = Buffer.concat(chunks);
+              if (fallbackBuffer.length > 0) {
+                console.log(`✅ [Bridge] Fallback download successful: ${fallbackBuffer.length} bytes`);
+                mediaData = {
+                  type: mediaFound.type,
+                  data: fallbackBuffer.toString('base64'),
+                  mimetype: mediaFound.obj.mimetype || (mediaFound.type === 'audio' ? 'audio/ogg' : 'image/jpeg')
+                };
+              } else {
+                console.warn(`⚠️ [Bridge] Fallback also returned empty buffer`);
+              }
+            } catch (e2: any) {
+              console.error(`❌ [Bridge] Fallback download also failed: ${e2.message}`);
+            }
           }
         }
+
+        console.log(`📤 [Bridge] Sending to Python: content="${content.substring(0, 50)}", hasMedia=${!!mediaData}`);
 
         this.options.onMessage({
           id: msg.key.id || '',
