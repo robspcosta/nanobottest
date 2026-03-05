@@ -146,7 +146,7 @@ class WhatsAppChannel(BaseChannel):
                 if media_type == "audio":
                     import base64
                     import tempfile
-                    from nanobot.providers.transcription import GroqTranscriptionProvider
+                    from nanobot.providers.transcription import get_transcription_provider
                     
                     try:
                         audio_data = base64.b64decode(media.get("data"))
@@ -155,7 +155,7 @@ class WhatsAppChannel(BaseChannel):
                             tmp_path = tmp.name
                             
                         logger.info("Transcribing voice message from {}...", sender_id)
-                        transcriber = GroqTranscriptionProvider()
+                        transcriber = get_transcription_provider()
                         transcript = await transcriber.transcribe(tmp_path)
                         
                         import os
