@@ -339,6 +339,17 @@ class AgentLoop:
         if msg.channel == "system":
             channel, chat_id = (msg.chat_id.split(":", 1) if ":" in msg.chat_id
                                 else ("cli", msg.chat_id))
+            
+            # Context-only notifications: store in session without calling LLM
+            if msg.sender_id == "whatsapp-secretary":
+                key = f"{channel}:{chat_id}"
+                session = self.sessions.get_or_create(key)
+                session.add_message("user", msg.content)
+                session.add_message("assistant", "Anotado. Recebi a notificação do WhatsApp.")
+                self.sessions.save(session)
+                logger.info("Stored WhatsApp notification context in session {}", key)
+                return None
+            
             logger.info("Processing system message from {}", msg.sender_id)
             key = f"{channel}:{chat_id}"
             session = self.sessions.get_or_create(key)
