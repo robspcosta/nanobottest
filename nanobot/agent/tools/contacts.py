@@ -31,7 +31,39 @@ class ContactTool(Tool):
             "Actions: 'save' (requires name, platform, external_id), 'search' (requires name), 'list'."
         )
 
-    async def run(self, action: str, name: str | None = None, platform: str | None = None, external_id: str | None = None) -> str:
+    @property
+    def parameters(self) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["save", "search", "list"],
+                    "description": "The action to perform.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the contact (for 'save' and 'search').",
+                },
+                "platform": {
+                    "type": "string",
+                    "enum": ["whatsapp", "telegram"],
+                    "description": "The platform for the contact (for 'save').",
+                },
+                "external_id": {
+                    "type": "string",
+                    "description": "The platform-specific ID, e.g., phone number or username (for 'save').",
+                },
+            },
+            "required": ["action"],
+        }
+
+    async def execute(self, **kwargs: Any) -> str:
+        action = kwargs.get("action")
+        name = kwargs.get("name")
+        platform = kwargs.get("platform")
+        external_id = kwargs.get("external_id")
+
         if not self.db:
             return "Error: Database not configured."
         if not self.channel or not self.chat_id:
