@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from typing import Any
 
 from loguru import logger
 from telegram import BotCommand, ReplyParameters, Update
