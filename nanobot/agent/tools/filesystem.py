@@ -27,8 +27,19 @@ class ReadFileTool(Tool):
     """Tool to read file contents."""
 
     def __init__(self, workspace: Path | None = None, allowed_dir: Path | None = None):
+        self._base_workspace = workspace
+        self._base_allowed_dir = allowed_dir
         self._workspace = workspace
         self._allowed_dir = allowed_dir
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the filesystem context for user isolation."""
+        if not self._base_allowed_dir: return
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_dir = self._base_allowed_dir / "users" / safe_key
+        user_dir.mkdir(parents=True, exist_ok=True)
+        self._workspace = user_dir
+        self._allowed_dir = user_dir
 
     @property
     def name(self) -> str:
@@ -66,8 +77,19 @@ class WriteFileTool(Tool):
     """Tool to write content to a file."""
 
     def __init__(self, workspace: Path | None = None, allowed_dir: Path | None = None):
+        self._base_workspace = workspace
+        self._base_allowed_dir = allowed_dir
         self._workspace = workspace
         self._allowed_dir = allowed_dir
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the filesystem context for user isolation."""
+        if not self._base_allowed_dir: return
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_dir = self._base_allowed_dir / "users" / safe_key
+        user_dir.mkdir(parents=True, exist_ok=True)
+        self._workspace = user_dir
+        self._allowed_dir = user_dir
 
     @property
     def name(self) -> str:
@@ -104,8 +126,19 @@ class EditFileTool(Tool):
     """Tool to edit a file by replacing text."""
 
     def __init__(self, workspace: Path | None = None, allowed_dir: Path | None = None):
+        self._base_workspace = workspace
+        self._base_allowed_dir = allowed_dir
         self._workspace = workspace
         self._allowed_dir = allowed_dir
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the filesystem context for user isolation."""
+        if not self._base_allowed_dir: return
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_dir = self._base_allowed_dir / "users" / safe_key
+        user_dir.mkdir(parents=True, exist_ok=True)
+        self._workspace = user_dir
+        self._allowed_dir = user_dir
 
     @property
     def name(self) -> str:
@@ -185,8 +218,19 @@ class ListDirTool(Tool):
     """Tool to list directory contents."""
 
     def __init__(self, workspace: Path | None = None, allowed_dir: Path | None = None):
+        self._base_workspace = workspace
+        self._base_allowed_dir = allowed_dir
         self._workspace = workspace
         self._allowed_dir = allowed_dir
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the filesystem context for user isolation."""
+        if not self._base_allowed_dir: return
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_dir = self._base_allowed_dir / "users" / safe_key
+        user_dir.mkdir(parents=True, exist_ok=True)
+        self._workspace = user_dir
+        self._allowed_dir = user_dir
 
     @property
     def name(self) -> str:

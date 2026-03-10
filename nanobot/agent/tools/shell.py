@@ -23,6 +23,7 @@ class ExecTool(Tool):
     ):
         self.timeout = timeout
         self.working_dir = working_dir
+        self.base_working_dir = working_dir
         self.deny_patterns = deny_patterns or [
             r"\brm\s+-[rf]{1,2}\b",          # rm -r, rm -rf, rm -fr
             r"\bdel\s+/[fq]\b",              # del /f, del /q
@@ -37,6 +38,14 @@ class ExecTool(Tool):
         self.allow_patterns = allow_patterns or []
         self.restrict_to_workspace = restrict_to_workspace
         self.path_append = path_append
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the working directory context for user isolation."""
+        if self.restrict_to_workspace and self.base_working_dir:
+            safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+            user_dir = Path(self.base_working_dir) / "users" / safe_key
+            user_dir.mkdir(parents=True, exist_ok=True)
+            self.working_dir = str(user_dir)
 
     @property
     def name(self) -> str:

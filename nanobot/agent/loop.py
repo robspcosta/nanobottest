@@ -158,8 +158,9 @@ class AgentLoop:
             self._mcp_connecting = False
 
     def _set_tool_context(self, channel: str, chat_id: str, message_id: str | None = None) -> None:
-        """Update context for all tools that need routing info."""
-        for name in ("message", "spawn", "cron"):
+        """Update context for all tools that need routing info or user isolation."""
+        for name in ("message", "spawn", "cron", "manage_tasks", "manage_knowledge", 
+                     "read_file", "write_file", "edit_file", "list_dir", "exec"):
             if tool := self.tools.get(name):
                 if hasattr(tool, "set_context"):
                     tool.set_context(channel, chat_id, *([message_id] if name == "message" else []))
@@ -505,7 +506,7 @@ class AgentLoop:
 
     async def _consolidate_memory(self, session, archive_all: bool = False) -> bool:
         """Delegate to MemoryStore.consolidate(). Returns True on success."""
-        return await MemoryStore(self.workspace).consolidate(
+        return await MemoryStore(self.workspace, session_key=session.key).consolidate(
             session, self.provider, self.model,
             archive_all=archive_all, memory_window=self.memory_window,
         )

@@ -15,8 +15,14 @@ class KnowledgeTool(Tool):
     """
 
     def __init__(self, workspace: Path):
-        self.workspace = workspace
-        self.knowledge_dir = ensure_dir(self.workspace / "knowledge")
+        self.base_workspace = workspace
+        self.knowledge_dir = ensure_dir(self.base_workspace / "knowledge")
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the current session context to isolate knowledge per user."""
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_workspace = self.base_workspace / "users" / safe_key
+        self.knowledge_dir = ensure_dir(user_workspace / "knowledge")
 
     @property
     def name(self) -> str:

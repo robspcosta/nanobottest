@@ -23,7 +23,7 @@ class ContextBuilder:
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
 
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
+    def build_system_prompt(self, skill_names: list[str] | None = None, session_key: str | None = None) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
 
@@ -31,7 +31,9 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
 
-        memory = self.memory.get_memory_context()
+        # Isolated memory per user/session
+        memory_store = MemoryStore(self.workspace, session_key)
+        memory = memory_store.get_memory_context()
         if memory:
             parts.append(f"# Memory\n\n{memory}")
 
@@ -110,8 +112,10 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
         media: list[str] | None = None,
         channel: str | None = None,
         chat_id: str | None = None,
+        session_key_override: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
+        session_key = session_key_override or (f"{channel}:{chat_id}" if channel and chat_id else None)
         runtime_ctx = self._build_runtime_context(channel, chat_id)
         user_content = self._build_user_content(current_message, media)
 
@@ -123,7 +127,7 @@ Reply directly with text for conversations. Only use the 'message' tool to send 
             merged = [{"type": "text", "text": runtime_ctx}] + user_content
 
         return [
-            {"role": "system", "content": self.build_system_prompt(skill_names)},
+            {"role": "system", "content": self.build_system_prompt(skill_names, session_key)},
             *history,
             {"role": "user", "content": merged},
         ]

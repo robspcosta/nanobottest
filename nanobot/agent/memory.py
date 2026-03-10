@@ -45,8 +45,16 @@ _SAVE_MEMORY_TOOL = [
 class MemoryStore:
     """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log)."""
 
-    def __init__(self, workspace: Path):
-        self.memory_dir = ensure_dir(workspace / "memory")
+    def __init__(self, workspace: Path, session_key: str | None = None):
+        self.workspace = workspace
+        base_dir = workspace / "memory"
+        if session_key:
+            # Sanitize session key for filesystem
+            safe_key = "".join(c for c in session_key if c.isalnum() or c in ("-", "_")).strip()
+            self.memory_dir = ensure_dir(base_dir / "users" / safe_key)
+        else:
+            self.memory_dir = ensure_dir(base_dir)
+            
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "HISTORY.md"
 

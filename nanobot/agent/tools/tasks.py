@@ -15,9 +15,17 @@ class TaskTool(Tool):
     """
 
     def __init__(self, workspace: Path):
-        self.workspace = workspace
-        self.tasks_file = self.workspace / "tasks.json"
-        self.md_file = self.workspace / "TASKS.md"
+        self.base_workspace = workspace
+        self.tasks_file = self.base_workspace / "tasks.json"
+        self.md_file = self.base_workspace / "TASKS.md"
+
+    def set_context(self, channel: str, chat_id: str) -> None:
+        """Set the current session context to isolate tasks per user."""
+        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
+        user_workspace = self.base_workspace / "users" / safe_key
+        user_workspace.mkdir(parents=True, exist_ok=True)
+        self.tasks_file = user_workspace / "tasks.json"
+        self.md_file = user_workspace / "TASKS.md"
 
     @property
     def name(self) -> str:
