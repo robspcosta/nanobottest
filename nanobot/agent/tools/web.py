@@ -110,7 +110,7 @@ class WebFetchTool(Tool):
     """Fetch and extract content from a URL using Readability."""
 
     name = "web_fetch"
-    description = "Fetch URL and extract readable content (HTML → markdown/text)."
+    description = "Web scraper: Fetch URL and extract readable content (HTML → markdown/text)."
     parameters = {
         "type": "object",
         "properties": {
