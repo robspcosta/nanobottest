@@ -76,6 +76,10 @@ class OpenAICodexProvider(LLMProvider):
                 finish_reason="error",
             )
 
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
+        """Stub for embedding generation - not available via Codex Responses API."""
+        return [0.0] * 1536
+
     def get_default_model(self) -> str:
         return self.default_model
 

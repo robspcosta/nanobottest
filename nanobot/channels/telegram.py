@@ -324,9 +324,17 @@ class TelegramChannel(BaseChannel):
         """Forward slash commands to the bus for unified handling in AgentLoop."""
         if not update.message or not update.effective_user:
             return
+        # Sender and Chat IDs
+        raw_sender_id = str(update.message.from_user.id)
+        if self.db:
+            sender_id = self.db._normalize_id(self.name, raw_sender_id)
+        else:
+            sender_id = raw_sender_id
+            
+        chat_id = str(update.message.chat_id)
         await self._handle_message(
-            sender_id=self._sender_id(update.effective_user),
-            chat_id=str(update.message.chat_id),
+            sender_id=sender_id,
+            chat_id=chat_id,
             content=update.message.text,
         )
 
@@ -388,14 +396,16 @@ class TelegramChannel(BaseChannel):
 
                 # Handle voice transcription
                 if media_type == "voice" or media_type == "audio":
-                    from nanobot.providers.transcription import GroqTranscriptionProvider
-                    transcriber = GroqTranscriptionProvider(api_key=self.groq_api_key)
+                    from nanobot.providers.transcription import get_transcription_provider
+                    transcriber = get_transcription_provider()
                     transcription = await transcriber.transcribe(file_path)
                     if transcription:
                         logger.info("Transcribed {}: {}...", media_type, transcription[:50])
-                        content_parts.append(f"[transcription: {transcription}]")
+                        content_parts.append(f"[Voice Message] {transcription}")
+                        # Confirmation to user
+                        await update.message.reply_text("✅ _Áudio transcrito. Analisando..._", parse_mode="Markdown")
                     else:
-                        content_parts.append(f"[{media_type}: {file_path}]")
+                        content_parts.append(f"[{media_type}: transcription failed]")
                 else:
                     content_parts.append(f"[{media_type}: {file_path}]")
 

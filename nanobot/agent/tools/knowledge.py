@@ -1,28 +1,27 @@
-"""Tool for managing a persistent knowledge base (RAG)."""
+"""Tool for managing a persistent semantic knowledge base (RAG) using PostgreSQL."""
 
-import os
+import json
 from pathlib import Path
-from typing import Any
-
+from typing import Any, Awaitable, Callable
+from loguru import logger
 from nanobot.agent.tools.base import Tool
-from nanobot.utils.helpers import ensure_dir
-
 
 class KnowledgeTool(Tool):
     """
-    Tool for managing a persistent knowledge base.
-    Allows storing snippets of information and searching through them.
+    Tool for managing a persistent semantic knowledge base.
+    Uses pgvector in PostgreSQL for meaning-based search.
     """
 
-    def __init__(self, workspace: Path):
-        self.base_workspace = workspace
-        self.knowledge_dir = ensure_dir(self.base_workspace / "knowledge")
+    def __init__(self, db: Any = None, embed_callback: Callable[[str], Awaitable[list[float]]] | None = None):
+        self._db = db
+        self._embed_callback = embed_callback
+        self._channel = None
+        self._chat_id = None
 
     def set_context(self, channel: str, chat_id: str) -> None:
         """Set the current session context to isolate knowledge per user."""
-        safe_key = "".join(c for c in f"{channel}_{chat_id}" if c.isalnum() or c in ("-", "_")).strip()
-        user_workspace = self.base_workspace / "users" / safe_key
-        self.knowledge_dir = ensure_dir(user_workspace / "knowledge")
+        self._channel = channel
+        self._chat_id = chat_id
 
     @property
     def name(self) -> str:
@@ -31,9 +30,9 @@ class KnowledgeTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Save important information to the long-term knowledge base or search through it. "
+            "Save important information to the long-term semantic knowledge base or search through it. "
             "Use this when the user asks to 'remember', 'save', or 'store' information for later. "
-            "Supported actions: store, search, list, read."
+            "Supported actions: store, search, list."
         )
 
     @property
@@ -43,12 +42,8 @@ class KnowledgeTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["store", "search", "list", "read"],
+                    "enum": ["store", "search", "list"],
                     "description": "The action to perform.",
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Title/filename for the knowledge entry (for 'store' and 'read').",
                 },
                 "content": {
                     "type": "string",
@@ -56,75 +51,70 @@ class KnowledgeTool(Tool):
                 },
                 "query": {
                     "type": "string",
-                    "description": "Search query to find relevant knowledge (for 'search').",
+                    "description": "Search query or topic to find relevant knowledge (for 'search').",
                 },
+                "tag": {
+                    "type": "string",
+                    "description": "Optional tag to categorize the knowledge (for 'store').",
+                }
             },
             "required": ["action"],
         }
 
     async def execute(self, **kwargs: Any) -> str:
+        if not self._db:
+            return "Error: Database not configured for knowledge management."
+        if not self._channel or not self._chat_id:
+            return "Error: User context not set."
+
         action = kwargs.get("action")
 
         if action == "store":
-            title = kwargs.get("title")
             content = kwargs.get("content")
-            if not title or not content:
-                return "Error: Title and content are required for 'store' action."
+            if not content:
+                return "Error: Content is required for 'store' action."
             
-            # Sanitize filename
-            filename = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
-            filename = filename.replace(" ", "_") + ".md"
-            file_path = self.knowledge_dir / filename
+            if not self._embed_callback:
+                return "Error: Embedding generator not configured."
             
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(f"# {title}\n\n{content}\n")
-            
-            return f"Knowledge saved successfully to '{filename}'."
-
-        if action == "list":
-            files = list(self.knowledge_dir.glob("*.md"))
-            if not files:
-                return "The knowledge base is currently empty."
-            
-            result = ["Stored Knowledge:"]
-            for f in files:
-                result.append(f"- {f.stem.replace('_', ' ')}")
-            return "\n".join(result)
-
-        if action == "read":
-            title = kwargs.get("title")
-            if not title:
-                return "Error: Title is required for 'read' action."
-            
-            filename = title.replace(" ", "_") + ".md"
-            file_path = self.knowledge_dir / filename
-            
-            if not file_path.exists():
-                return f"Error: Knowledge entry '{title}' not found."
-            
-            return file_path.read_text(encoding="utf-8")
+            try:
+                embedding = await self._embed_callback(content)
+                metadata = {"tag": kwargs.get("tag")}
+                self._db.add_knowledge(self._channel, self._chat_id, content, embedding, metadata)
+                return "Knowledge successfully stored in the semantic memory."
+            except Exception as e:
+                logger.error("Failed to store knowledge: {}", e)
+                return f"Error storing knowledge: {str(e)}"
 
         if action == "search":
             query = kwargs.get("query")
             if not query:
                 return "Error: Query is required for 'search' action."
             
-            query = query.lower()
-            results = []
-            
-            for file_path in self.knowledge_dir.glob("*.md"):
-                content = file_path.read_text(encoding="utf-8")
-                if query in content.lower() or query in file_path.stem.lower():
-                    # Extract a snippet
-                    idx = content.lower().find(query)
-                    start = max(0, idx - 50)
-                    end = min(len(content), idx + 150)
-                    snippet = "..." + content[start:end].replace("\n", " ") + "..."
-                    results.append(f"### {file_path.stem.replace('_', ' ')}\n{snippet}\n")
-            
-            if not results:
-                return f"No knowledge found for query: '{query}'"
-            
-            return "Search Results:\n\n" + "\n".join(results)
+            if not self._embed_callback:
+                return "Error: Embedding generator not configured."
+
+            try:
+                embedding = await self._embed_callback(query)
+                results = self._db.search_knowledge(self._channel, self._chat_id, embedding, limit=5)
+                
+                if not results:
+                    return f"No semantic knowledge found for query: '{query}'"
+                
+                output = ["Semantic Search Results:"]
+                for i, r in enumerate(results, 1):
+                    tag = r["metadata"].get("tag")
+                    tag_str = f" [{tag}]" if tag else ""
+                    output.append(f"{i}.{tag_str} {r['content']}")
+                
+                return "\n\n".join(output)
+            except Exception as e:
+                logger.error("Failed to search knowledge: {}", e)
+                return f"Error searching knowledge: {str(e)}"
+
+        if action == "list":
+             # We reuse search with a zero vector or just fetch recent if we had a list method
+             # For now, let's keep it simple and suggest searching.
+             return "To see what I know, please use the 'search' action with a topic."
 
         return f"Error: Unknown action '{action}'."

@@ -136,9 +136,18 @@ class WhatsAppChannel(BaseChannel):
                     self._processed_message_ids.popitem(last=False)
 
             # Extract just the phone number or lid as chat_id
-            user_id = pn if pn else sender
-            sender_id = user_id.split("@")[0] if "@" in user_id else user_id
-            logger.info("Sender {}", sender)
+            user_id = data.get("sender")
+            if not user_id:
+                return
+            
+            # Normalize sender_id
+            clean_id = user_id.split("@")[0] if "@" in user_id else user_id
+            if self.db:
+                sender_id = self.db._normalize_id(self.name, clean_id)
+            else:
+                sender_id = clean_id
+            
+            logger.info("Sender normalized: {} (from {})", sender_id, user_id)
 
             # Handle media (audio/image)
             media = data.get("media")
@@ -163,8 +172,15 @@ class WhatsAppChannel(BaseChannel):
                         os.unlink(tmp_path)
                         
                         if transcript:
-                            content = transcript
-                            logger.info("Transcription: {}", content)
+                            content = f"[Voice Message] {transcript}"
+                            logger.info("Transcription: {}", transcript)
+                            # Optional: Send a small hint back to the user that we are analyzing
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=self.name,
+                                chat_id=sender_id,
+                                content="✅ _Áudio recebido e transcrito. Analisando..._",
+                                metadata={"_progress": True}
+                            ))
                         else:
                             content = "[Voice Message: Transcription failed]"
                     except Exception as e:

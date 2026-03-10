@@ -15,6 +15,7 @@ from loguru import logger
 from nanobot.agent.context import ContextBuilder
 from nanobot.agent.memory import MemoryStore
 from nanobot.agent.subagent import SubagentManager
+from nanobot.agent.tools.audio import AudioTool
 from nanobot.agent.tools.contacts import ContactTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
@@ -138,8 +139,9 @@ class AgentLoop:
         self.tools.register(MessageTool(send_callback=self.bus.publish_outbound, db=self.db))
         self.tools.register(SpawnTool(manager=self.subagents))
         self.tools.register(TaskTool(workspace=self.workspace))
-        self.tools.register(KnowledgeTool(workspace=self.workspace))
+        self.tools.register(KnowledgeTool(db=self.db, embed_callback=self.provider.embed))
         self.tools.register(ContactTool(db=self.db))
+        self.tools.register(AudioTool())
 
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))

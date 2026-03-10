@@ -290,6 +290,30 @@ class LiteLLMProvider(LLMProvider):
             thinking_blocks=thinking_blocks,
         )
 
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
+        """Generate an embedding for the given text using LiteLLM."""
+        embedding_model = model or "text-embedding-3-small"
+        
+        kwargs = {
+            "model": embedding_model,
+            "input": [text],
+        }
+        
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        if self.api_base:
+            kwargs["api_base"] = self.api_base
+            
+        try:
+            from litellm import aembedding
+            response = await aembedding(**kwargs)
+            return response.data[0]["embedding"]
+        except Exception as e:
+            logger.error("Error generating embedding: {}", e)
+            # Return zero vector as fallback to avoid crashing (though undesirable)
+            # Standard dimensions for many models is 1536
+            return [0.0] * 1536
+
     def get_default_model(self) -> str:
         """Get the default model."""
         return self.default_model

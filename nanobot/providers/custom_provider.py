@@ -50,6 +50,17 @@ class CustomProvider(LLMProvider):
             reasoning_content=getattr(msg, "reasoning_content", None) or None,
         )
 
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
+        """Generate an embedding for the given text using the OpenAI-compatible client."""
+        try:
+            response = await self._client.embeddings.create(
+                model=model or "text-embedding-3-small",
+                input=[text]
+            )
+            return response.data[0].embedding
+        except Exception:
+            return [0.0] * 1536
+
     def get_default_model(self) -> str:
         return self.default_model
 
