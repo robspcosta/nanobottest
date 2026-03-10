@@ -17,11 +17,31 @@ x-common-config: &common-config
     - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM:-}
     - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-}
     - WHATSAPP_ALLOW_FROM=${WHATSAPP_ALLOW_FROM:-}
+    - DATABASE_URL=${DATABASE_URL:-postgresql://nanobot:${DB_PASSWORD:-nanobot123}@db:5432/nanobot}
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: nanobot-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=nanobot
+      - POSTGRES_USER=nanobot
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-nanobot123}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nanobot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - nanobot-db-data:/var/lib/postgresql/data
+
   nanobot-gateway:
     container_name: nanobot-gateway
     <<: *common-config
+    depends_on:
+      db:
+        condition: service_healthy
     command: [ "gateway" ]
     restart: unless-stopped
     ports:
@@ -37,8 +57,13 @@ services:
 
   nanobot-cli:
     <<: *common-config
+    depends_on:
+      - db
     profiles:
       - cli
     command: [ "status" ]
     stdin_open: true
     tty: true
+
+volumes:
+  nanobot-db-data:

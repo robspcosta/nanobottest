@@ -11,6 +11,7 @@ from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import Config
+from nanobot.db.manager import DatabaseManager
 
 
 class ChannelManager:
@@ -27,6 +28,17 @@ class ChannelManager:
         self.config = config
         self.bus = bus
         self.channels: dict[str, BaseChannel] = {}
+        self.db = None
+        if self.config.database_url:
+            self.db = DatabaseManager(self.config.database_url)
+            logger.info("Database manager initialized with PostgreSQL.")
+            
+            # Seed from config
+            config_users = {}
+            for name, conf in vars(self.config.channels).items():
+                if hasattr(conf, "allow_from"):
+                    config_users[name] = conf.allow_from
+            self.db.seed_users(config_users)
         self._dispatch_task: asyncio.Task | None = None
 
         self._init_channels()
@@ -42,6 +54,7 @@ class ChannelManager:
                     self.config.channels.telegram,
                     self.bus,
                     groq_api_key=self.config.providers.groq.api_key,
+                    db=self.db,
                 )
                 logger.info("Telegram channel enabled")
             except ImportError as e:
@@ -52,7 +65,7 @@ class ChannelManager:
             try:
                 from nanobot.channels.whatsapp import WhatsAppChannel
                 self.channels["whatsapp"] = WhatsAppChannel(
-                    self.config.channels.whatsapp, self.bus
+                    self.config.channels.whatsapp, self.bus, db=self.db
                 )
                 logger.info("WhatsApp channel enabled")
             except ImportError as e:
@@ -144,6 +157,7 @@ class ChannelManager:
                 self.channels["matrix"] = MatrixChannel(
                     self.config.channels.matrix,
                     self.bus,
+                    db=self.db,
                 )
                 logger.info("Matrix channel enabled")
             except ImportError as e:

@@ -19,16 +19,18 @@ class BaseChannel(ABC):
 
     name: str = "base"
 
-    def __init__(self, config: Any, bus: MessageBus):
+    def __init__(self, config: Any, bus: MessageBus, db: Any = None):
         """
         Initialize the channel.
 
         Args:
             config: Channel-specific configuration.
             bus: The message bus for communication.
+            db: Optional DatabaseManager for user isolation and authorization.
         """
         self.config = config
         self.bus = bus
+        self.db = db
         self._running = False
 
     @abstractmethod
@@ -60,6 +62,10 @@ class BaseChannel(ABC):
 
     def is_allowed(self, sender_id: str) -> bool:
         """Check if *sender_id* is permitted.  Empty list → deny all; ``"*"`` → allow all."""
+        # Check database if available
+        if self.db and self.db.is_allowed(self.name, sender_id):
+            return True
+
         allow_list = getattr(self.config, "allow_from", [])
         if not allow_list:
             logger.warning("{}: allow_from is empty — all access denied", self.name)

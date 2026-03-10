@@ -43,6 +43,8 @@ dependencies = [
     "mcp>=1.26.0,<2.0.0",
     "json-repair>=0.57.0,<1.0.0",
     "openai>=2.8.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg[binary]>=3.1.0",
 ]
 
 [project.optional-dependencies]
