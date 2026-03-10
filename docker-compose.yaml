@@ -27,7 +27,7 @@ services:
     environment:
       - POSTGRES_DB=nanobot
       - POSTGRES_USER=nanobot
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-nanobot123}
+      - POSTGRES_PASSWORD=nanobot123
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U nanobot" ]
       interval: 10s
