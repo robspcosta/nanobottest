@@ -15,6 +15,7 @@ from loguru import logger
 from nanobot.agent.context import ContextBuilder
 from nanobot.agent.memory import MemoryStore
 from nanobot.agent.subagent import SubagentManager
+from nanobot.agent.tools.contacts import ContactTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from nanobot.agent.tools.knowledge import KnowledgeTool
@@ -27,6 +28,7 @@ from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
+from nanobot.db.manager import DatabaseManager
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
@@ -67,6 +69,7 @@ class AgentLoop:
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
         channels_config: ChannelsConfig | None = None,
+        database_url: str | None = None,
     ):
         from nanobot.config.schema import ExecToolConfig
         self.bus = bus
@@ -84,6 +87,11 @@ class AgentLoop:
         self.exec_config = exec_config or ExecToolConfig()
         self.cron_service = cron_service
         self.restrict_to_workspace = restrict_to_workspace
+        
+        self.db = None
+        if database_url:
+            self.db = DatabaseManager(database_url)
+            logger.info("AgentLoop initialized with DatabaseManager.")
 
         self.context = ContextBuilder(workspace)
         self.sessions = session_manager or SessionManager(workspace)
@@ -127,10 +135,11 @@ class AgentLoop:
         ))
         self.tools.register(WebSearchTool(api_key=self.brave_api_key, proxy=self.web_proxy))
         self.tools.register(WebFetchTool(proxy=self.web_proxy))
-        self.tools.register(MessageTool(send_callback=self.bus.publish_outbound))
+        self.tools.register(MessageTool(send_callback=self.bus.publish_outbound, db=self.db))
         self.tools.register(SpawnTool(manager=self.subagents))
         self.tools.register(TaskTool(workspace=self.workspace))
         self.tools.register(KnowledgeTool(workspace=self.workspace))
+        self.tools.register(ContactTool(db=self.db))
 
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
@@ -160,7 +169,7 @@ class AgentLoop:
     def _set_tool_context(self, channel: str, chat_id: str, message_id: str | None = None) -> None:
         """Update context for all tools that need routing info or user isolation."""
         for name in ("message", "spawn", "cron", "manage_tasks", "manage_knowledge", 
-                     "read_file", "write_file", "edit_file", "list_dir", "exec"):
+                     "read_file", "write_file", "edit_file", "list_dir", "exec", "manage_contacts"):
             if tool := self.tools.get(name):
                 if hasattr(tool, "set_context"):
                     tool.set_context(channel, chat_id, *([message_id] if name == "message" else []))

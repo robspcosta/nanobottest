@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Any
 
 from loguru import logger
-from sqlalchemy import Column, DateTime, String, Boolean, create_engine, select
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, DateTime, String, Boolean, Integer, ForeignKey, create_engine, select, func
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 Base = declarative_base()
 
@@ -21,6 +21,21 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    contacts = relationship("Contact", back_populates="owner", cascade="all, delete-orphan")
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(String, ForeignKey("users.id"), index=True)
+    name = Column(String, index=True)
+    platform = Column(String)
+    external_id = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User", back_populates="contacts")
 
 
 class DatabaseManager:
@@ -118,3 +133,57 @@ class DatabaseManager:
                     session.add(user)
             session.commit()
             logger.info("Database seeded successfully.")
+
+    def save_contact(self, owner_platform: str, owner_id: str, name: str, contact_platform: str, external_id: str) -> bool:
+        """Save or update a contact for a user."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            # Check for existing contact with same name for this owner
+            stmt = select(Contact).where(Contact.owner_id == full_owner_id, func.lower(Contact.name) == name.lower())
+            contact = session.execute(stmt).scalar_one_or_none()
+            
+            if contact:
+                contact.platform = contact_platform
+                contact.external_id = str(external_id)
+            else:
+                contact = Contact(
+                    owner_id=full_owner_id,
+                    name=name,
+                    platform=contact_platform,
+                    external_id=str(external_id)
+                )
+                session.add(contact)
+            
+            session.commit()
+            logger.info("Saved contact '{}' for user {}", name, full_owner_id)
+            return True
+
+    def get_contact(self, owner_platform: str, owner_id: str, name: str) -> dict[str, Any] | None:
+        """Find a contact by name."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            # Case insensitive search
+            stmt = select(Contact).where(Contact.owner_id == full_owner_id, func.lower(Contact.name) == name.lower())
+            contact = session.execute(stmt).scalar_one_or_none()
+            if contact:
+                return {
+                    "name": contact.name,
+                    "platform": contact.platform,
+                    "external_id": contact.external_id
+                }
+            return None
+
+    def list_contacts(self, owner_platform: str, owner_id: str) -> list[dict[str, Any]]:
+        """List all contacts for a user."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            stmt = select(Contact).where(Contact.owner_id == full_owner_id)
+            contacts = session.execute(stmt).scalars().all()
+            return [
+                {
+                    "name": c.name,
+                    "platform": c.platform,
+                    "external_id": c.external_id
+                }
+                for c in contacts
+            ]

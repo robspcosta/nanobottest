@@ -15,11 +15,13 @@ class MessageTool(Tool):
         default_channel: str = "",
         default_chat_id: str = "",
         default_message_id: str | None = None,
+        db: Any = None,
     ):
         self._send_callback = send_callback
         self._default_channel = default_channel
         self._default_chat_id = default_chat_id
         self._default_message_id = default_message_id
+        self._db = db
         self._sent_in_turn: bool = False
 
     def set_context(self, channel: str, chat_id: str, message_id: str | None = None) -> None:
@@ -46,7 +48,7 @@ class MessageTool(Tool):
             "Send a message to a user or a group on a specific channel (like telegram or whatsapp). "
             "Use this ONLY when you want to initiate a message to a NEW contact or a DIFFERENT chat_id. "
             "For normal replies to the current user, just respond with plain text. "
-            "Required parameters: content. Optional: channel, chat_id (e.g. '5511999999999' for WhatsApp)."
+            "Required parameters: content. Optional: contact_name (to lookup via contacts), channel, chat_id."
         )
 
 
@@ -67,6 +69,10 @@ class MessageTool(Tool):
                     "type": "string",
                     "description": "Optional: target chat/user ID"
                 },
+                "contact_name": {
+                    "type": "string",
+                    "description": "Optional: search for a contact by name to find their ID and channel"
+                },
                 "media": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -81,10 +87,20 @@ class MessageTool(Tool):
         content: str,
         channel: str | None = None,
         chat_id: str | None = None,
+        contact_name: str | None = None,
         message_id: str | None = None,
         media: list[str] | None = None,
         **kwargs: Any
     ) -> str:
+        # 1. Resolve contact by name if provided
+        if contact_name and self._db:
+            contact = self._db.get_contact(self._default_channel, self._default_chat_id, contact_name)
+            if contact:
+                channel = contact["platform"]
+                chat_id = contact["external_id"]
+            else:
+                return f"Error: Contact '{contact_name}' not found."
+
         channel = channel or self._default_channel
         chat_id = chat_id or self._default_chat_id
         message_id = message_id or self._default_message_id
