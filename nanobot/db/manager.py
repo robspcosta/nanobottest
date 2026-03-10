@@ -78,11 +78,31 @@ class DatabaseManager:
 
     def _normalize_id(self, platform: str, external_id: str) -> str:
         """Normalize IDs (especially phone numbers) for consistency."""
+        import re
+        if not external_id:
+            return ""
         external_id = str(external_id).strip()
+        
         if platform == "whatsapp":
-            # Remove +, spaces, dashes, parentheses
-            import re
-            return re.sub(r"[\+\s\-\(\)]", "", external_id)
+            # 1. Remove all non-digits
+            clean = re.sub(r"\D", "", external_id)
+            
+            # 2. Brazil Specific Normalization
+            # Brazil numbers are 55 + DDD (2) + 8 or 9 digits.
+            if clean.startswith("55") and (len(clean) == 12 or len(clean) == 13):
+                ddd = clean[2:4]
+                number = clean[4:]
+                # If 9 digits mobile (9xxxxxxx), remove the 9th digit '9'
+                # WhatsApp JIDs in Brazil often ignore the 9th digit.
+                if len(number) == 9 and number.startswith("9"):
+                    number = number[1:]
+                return f"55{ddd}{number}"
+            
+            # If provided without 55 prefix (e.g. 5196057577 or 51996057577)
+            if not clean.startswith("55") and (len(clean) == 10 or len(clean) == 11):
+                return self._normalize_id(platform, f"55{clean}")
+                
+            return clean
         return external_id
 
     def is_allowed(self, platform: str, external_id: str) -> bool:
@@ -145,27 +165,38 @@ class DatabaseManager:
             ]
 
     def seed_users(self, config_users: dict[str, list[str]]) -> None:
-        """Seed database from config if empty."""
+        """Seed/Sync database from config. Ensures config users exist and are normalized."""
+        logger.info("Syncing users from config...")
         with self.SessionLocal() as session:
-            # Only seed if no users exist
-            if session.execute(select(User)).first():
-                return
-
-            logger.info("Database empty, seeding users from config...")
             for platform, ids in config_users.items():
                 for sid in ids:
                     if sid == "*": continue
-                    # Extract numeric ID if sid contains |
-                    external_id = sid.split("|")[0]
-                    user = User(
-                        id=f"{platform}:{external_id}",
-                        platform=platform,
-                        external_id=external_id,
-                        role="admin" # Config users are trusted as admins
-                    )
-                    session.add(user)
+                    
+                    # Extract numeric ID and normalize
+                    raw_id = sid.split("|")[0]
+                    external_id = self._normalize_id(platform, raw_id)
+                    user_db_id = f"{platform}:{external_id}"
+                    
+                    # Check for existing user
+                    stmt = select(User).where(User.id == user_db_id)
+                    user = session.execute(stmt).scalar_one_or_none()
+                    
+                    if not user:
+                        user = User(
+                            id=user_db_id,
+                            platform=platform,
+                            external_id=external_id,
+                            role="admin",
+                            is_active=True
+                        )
+                        session.add(user)
+                        logger.info("Seeded new user: {}", user_db_id)
+                    else:
+                        # Ensure user is active and has correct role
+                        user.is_active = True
+                        user.role = "admin"
+            
             session.commit()
-            logger.info("Database seeded successfully.")
 
     # --- Knowledge / RAG Methods ---
 
@@ -238,6 +269,27 @@ class DatabaseManager:
         with self.SessionLocal() as session:
             # Case insensitive search
             stmt = select(Contact).where(Contact.owner_id == full_owner_id, func.lower(Contact.name) == name.lower())
+            contact = session.execute(stmt).scalar_one_or_none()
+            if contact:
+                return {
+                    "name": contact.name,
+                    "platform": contact.platform,
+                    "external_id": contact.external_id
+                }
+            return None
+
+    def get_contact_by_id(self, owner_platform: str, owner_id: str, platform: str, external_id: str) -> dict[str, Any] | None:
+        """Find a contact by their platform identifier (e.g. phone number)."""
+        owner_id = self._normalize_id(owner_platform, owner_id)
+        external_id = self._normalize_id(platform, external_id)
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        
+        with self.SessionLocal() as session:
+            stmt = select(Contact).where(
+                Contact.owner_id == full_owner_id, 
+                Contact.platform == platform,
+                Contact.external_id == external_id
+            )
             contact = session.execute(stmt).scalar_one_or_none()
             if contact:
                 return {

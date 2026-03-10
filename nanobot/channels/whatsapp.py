@@ -135,19 +135,29 @@ class WhatsAppChannel(BaseChannel):
                 while len(self._processed_message_ids) > 1000:
                     self._processed_message_ids.popitem(last=False)
 
-            # Extract just the phone number or lid as chat_id
-            user_id = data.get("sender")
-            if not user_id:
+            # Extract identity. Prefer 'pn' (Phone Number) if available as it's 
+            # more stable for allow-lists than LIDs.
+            bridge_sender = data.get("sender", "")
+            bridge_pn = data.get("pn", "")
+            
+            # If 'pn' has a standard WhatsApp suffix, it's likely the real phone number
+            if bridge_pn and "@s.whatsapp.net" in bridge_pn:
+                raw_id = bridge_pn
+            else:
+                raw_id = bridge_sender
+            
+            if not raw_id:
                 return
             
-            # Normalize sender_id
-            clean_id = user_id.split("@")[0] if "@" in user_id else user_id
+            clean_id = raw_id.split("@")[0] if "@" in raw_id else raw_id
+            
             if self.db:
                 sender_id = self.db._normalize_id(self.name, clean_id)
             else:
                 sender_id = clean_id
             
-            logger.info("Sender normalized: {} (from {})", sender_id, user_id)
+            logger.info("Sender identified: {} (from: sender={}, pn={})", 
+                        sender_id, bridge_sender, bridge_pn)
 
             # Handle media (audio/image)
             media = data.get("media")
@@ -194,9 +204,23 @@ class WhatsAppChannel(BaseChannel):
                 # Format: "channel:chat_id"
                 if ":" in self.config.secretary_target:
                     target_channel, target_chat_id = self.config.secretary_target.split(":", 1)
+                    
+                    # Try to find contact name for better display
+                    display_name = sender_id
+                    if self.db:
+                        # We lookup using the secretary's target as the owner context
+                        contact = self.db.get_contact_by_id(target_channel, target_chat_id, self.name, sender_id)
+                        if contact:
+                            display_name = f"👤 {contact['name']} ({sender_id})"
+                    
+                    is_allowed = self.is_allowed(sender_id)
+                    status_emoji = "✅" if is_allowed else "⚠️"
+                    status_text = "Autorizado" if is_allowed else "Não Autorizado (Bloqueado)"
+                    
                     forward_text = (
                         f"🔔 *Mensagem no WhatsApp*\n"
-                        f"*De:* {sender_id}\n"
+                        f"*De:* {display_name}\n"
+                        f"*Status:* {status_emoji} {status_text}\n"
                         f"*Conteúdo:* {content}"
                     )
                     await self.bus.publish_outbound(OutboundMessage(
