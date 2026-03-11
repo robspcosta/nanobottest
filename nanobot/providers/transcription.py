@@ -74,9 +74,43 @@ class GeminiTranscriptionProvider:
             return ""
 
 
+class WhisperLocalTranscriptionProvider:
+    """Voice transcription provider using a local Whisper API (OpenAI-compatible)."""
+
+    def __init__(self, api_url: str | None = None, api_key: str | None = None):
+        # Use internal URL from user if provided, otherwise check env
+        base_url = api_url or os.environ.get("WHISPER_API_URL") or "http://172.16.51.5:8000"
+        
+        # Ensure it points to the transcription endpoint
+        if "/v1/audio/transcriptions" not in base_url:
+            base_url = base_url.rstrip("/") + "/v1/audio/transcriptions"
+            
+        self.api_url = base_url
+        self.api_key = api_key or os.environ.get("WHISPER_API_KEY", "sk-local")
+
+    async def transcribe(self, file_path: str | Path) -> str:
+        path = Path(file_path)
+        try:
+            async with httpx.AsyncClient() as client:
+                with open(path, "rb") as f:
+                    # Some local whisper implementations expect 'model' as well
+                    files = {"file": (path.name, f), "model": (None, "whisper-1")}
+                    headers = {"Authorization": f"Bearer {self.api_key}"}
+                    response = await client.post(self.api_url, headers=headers, files=files, timeout=120.0)
+                    response.raise_for_status()
+                    return response.json().get("text", "")
+        except Exception as e:
+            logger.error("Local Whisper transcription error: {}", e)
+            return ""
+
+
 def get_transcription_provider():
-    """Factory to get the preferred transcription provider."""
-    # Prefer Gemini if configured, otherwise Groq
-    if os.environ.get("GEMINI_API_KEY"):
-        return GeminiTranscriptionProvider()
-    return GroqTranscriptionProvider()
+    """Factory to get the preferred transcription provider.
+    Now exclusively uses local Whisper to ensure data privacy as requested.
+    """
+    url = os.environ.get("WHISPER_API_URL")
+    if not url:
+        # Default to internal IP provided by user
+        url = "http://172.16.51.5:8000/v1/audio/transcriptions"
+    
+    return WhisperLocalTranscriptionProvider(api_url=url)

@@ -356,6 +356,17 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     ),
 
     # === Local deployment (matched by config key, NOT by api_base) =========
+    
+    # Ollama: local deployment
+    ProviderSpec(
+        name="ollama",
+        keywords=("ollama",),
+        env_key="OLLAMA_API_KEY",
+        display_name="Ollama",
+        litellm_prefix="ollama",
+        is_local=True,
+        default_api_base="http://172.16.50.37:11434",
+    ),
 
     # vLLM / any OpenAI-compatible local server.
     # Detected when config key is "vllm" (provider_name="vllm").
