@@ -5,13 +5,6 @@ x-common-config: &common-config
   volumes:
     - ~/.nanobot:/root/.nanobot
   environment:
-    - GROQ_API_KEY=${GROQ_API_KEY:-}
-    - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-    - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-    - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-    - LLM_PROVIDER=${LLM_PROVIDER:-}
-    - MODEL=${MODEL:-}
     - TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-}
     - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
     - TELEGRAM_ALLOW_FROM=${TELEGRAM_ALLOW_FROM:-}

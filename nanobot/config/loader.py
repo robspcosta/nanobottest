@@ -57,14 +57,9 @@ def _apply_env_overrides(config: Config) -> None:
         val = os.environ.get(env_name, "").lower()
         return val in ("true", "1", "yes", "on")
 
-    # Map standard environment variable names to config attributes
+    # Map standard environment variable names to config attributes (mostly for remaining services)
     provider_env_map = {
-        "GROQ_API_KEY": ("providers", "groq", "api_key"),
-        "GEMINI_API_KEY": ("providers", "gemini", "api_key"),
-        "OPENAI_API_KEY": ("providers", "openai", "api_key"),
-        "ANTHROPIC_API_KEY": ("providers", "anthropic", "api_key"),
-        "OPENROUTER_API_KEY": ("providers", "openrouter", "api_key"),
-        "DEEPSEEK_API_KEY": ("providers", "deepseek", "api_key"),
+        # Custom / Local providers don't need fixed env mapping here
     }
 
     for env_var, path in provider_env_map.items():
