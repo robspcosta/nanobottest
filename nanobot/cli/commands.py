@@ -419,7 +419,8 @@ def gateway(
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                text=True
+                text=True,
+                shell=os.name == 'nt'
             )
             
             # Relay all bridge output to the console for QR code visibility
