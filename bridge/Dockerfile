@@ -2,8 +2,12 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package*.json tsconfig.json ./
-RUN npm install
+COPY package.json ./
+# Copy lockfile only if it exists
+COPY package-lock.json* ./
+COPY tsconfig.json* ./
+
+RUN npm install --no-audit && npm cache clean --force
 
 COPY src/ ./src/
 RUN npm run build
