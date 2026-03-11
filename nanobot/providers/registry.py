@@ -365,7 +365,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         display_name="Ollama",
         litellm_prefix="ollama",
         is_local=True,
-        default_api_base="http://172.16.50.37:11434",
+        default_api_base="https://ollama.rasys.net.br",
     ),
 
     # vLLM / any OpenAI-compatible local server.

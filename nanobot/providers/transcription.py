@@ -110,7 +110,7 @@ def get_transcription_provider():
     """
     url = os.environ.get("WHISPER_API_URL")
     if not url:
-        # Default to internal IP provided by user
-        url = "http://172.16.51.5:8000/v1/audio/transcriptions"
+        # Default to public Rasys URL for VPS compatibility
+        url = "https://whisper.rasys.net.br/v1/audio/transcriptions"
     
     return WhisperLocalTranscriptionProvider(api_url=url)
