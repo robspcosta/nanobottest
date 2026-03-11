@@ -360,7 +360,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
     # Ollama: local deployment
     ProviderSpec(
         name="ollama",
-        keywords=("ollama",),
+        keywords=("ollama", "qwen"),
         env_key="OLLAMA_API_KEY",
         display_name="Ollama",
         litellm_prefix="ollama",
