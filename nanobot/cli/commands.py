@@ -792,11 +792,12 @@ def _get_bridge_dir() -> Path:
 
     # Install and build
     try:
+        is_windows = os.name == 'nt'
         console.print("  Installing dependencies...")
-        subprocess.run(["npm", "install"], cwd=user_bridge, check=True, capture_output=True)
+        subprocess.run(["npm", "install"], cwd=user_bridge, check=True, capture_output=True, shell=is_windows)
 
         console.print("  Building...")
-        subprocess.run(["npm", "run", "build"], cwd=user_bridge, check=True, capture_output=True)
+        subprocess.run(["npm", "run", "build"], cwd=user_bridge, check=True, capture_output=True, shell=is_windows)
 
         console.print("[green]✓[/green] Bridge ready\n")
     except subprocess.CalledProcessError as e:
