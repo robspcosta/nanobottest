@@ -35,18 +35,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      whatsapp-bridge:
+        condition: service_started
+    environment:
+      - WHATSAPP_BRIDGE_URL=ws://whatsapp-bridge:3001
     command: [ "gateway" ]
     restart: unless-stopped
     ports:
       - 18790:18790
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+
+  whatsapp-bridge:
+    container_name: whatsapp-bridge
+    build:
+      context: ./bridge
+    volumes:
+      - ./.nanobot/bridge_auth:/app/auth
+    environment:
+      - BRIDGE_PORT=3001
+      - BRIDGE_TOKEN=${WHATSAPP_BRIDGE_TOKEN:-}
+    restart: unless-stopped
 
   nanobot-cli:
     <<: *common-config
