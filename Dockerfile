@@ -9,13 +9,13 @@ RUN apt-get update && \
 
 # Install Python dependencies
 COPY pyproject.toml README.md LICENSE ./
-RUN mkdir -p nanobot && touch nanobot/__init__.py && \
+RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
     uv pip install --system --no-cache . && \
-    rm -rf nanobot
+    rm -rf nanobot bridge
 
 # Copy only the Python source
 COPY nanobot/ nanobot/
-RUN uv pip install --system --no-cache .
+RUN mkdir -p bridge && uv pip install --system --no-cache .
 
 # Create config directory
 RUN mkdir -p /root/.nanobot
