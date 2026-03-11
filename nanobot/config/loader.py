@@ -101,14 +101,10 @@ def _apply_env_overrides(config: Config) -> None:
         if os.environ.get("WHATSAPP_SECRETARY_TARGET"):
             config.channels.whatsapp.secretary_target = os.environ.get("WHATSAPP_SECRETARY_TARGET")
 
-    # Agent defaults
-    env_provider = os.environ.get("LLM_PROVIDER")
-    if env_provider:
-        config.agents.defaults.provider = env_provider
-    
-    env_model = os.environ.get("MODEL") or os.environ.get("LLM_MODEL")
-    if env_model:
-        config.agents.defaults.model = env_model
+    # Note: LLM_PROVIDER and MODEL overrides are now handled by Pydantic 
+    # via NANOBOT_AGENTS__DEFAULTS__PROVIDER and NANOBOT_AGENTS__DEFAULTS__MODEL
+    # to avoid conflicts with generic environment variables.
+    pass
 
 
 
