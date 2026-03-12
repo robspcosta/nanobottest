@@ -55,16 +55,44 @@ Set-Location "$BRIDGE_DIR"
 npm run build --silent
 Set-Location "$PROJ_DIR"
 
-# 5. Configurar Ambiente
+# 5. Configurar Ambiente e Testar Conectividade
+Write-Host "[5/5] Configurando ambiente e testando conectividade..." -ForegroundColor Cyan
+
 $env:DATABASE_URL = "postgresql://nanobot:nanobot123@localhost:5432/nanobot"
 $env:WHATSAPP_ENABLED = "true"
 $env:WHATSAPP_ALLOW_FROM = "*"
 $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
-$env:WHISPER_API_URL = "http://172.16.51.5:8000/v1/audio/transcriptions"
-$env:NANOBOT_PROVIDERS__OLLAMA__API_BASE = "http://172.16.50.37:11434"
+$env:BRIDGE_PORT = "3001"
+
+# Endereços dos serviços (Ajuste se necessário)
+$OLLAMA_IP = "172.16.50.37"
+$OLLAMA_PORT = 11434
+$WHISPER_IP = "172.16.51.5"
+$WHISPER_PORT = 8000
+
+# Configurações para o Nanobot
+$env:NANOBOT_PROVIDERS__OLLAMA__API_BASE = "http://$($OLLAMA_IP):$($OLLAMA_PORT)"
+$env:OLLAMA_API_BASE = $env:NANOBOT_PROVIDERS__OLLAMA__API_BASE
+$env:WHISPER_API_URL = "http://$($WHISPER_IP):$($WHISPER_PORT)/v1/audio/transcriptions"
 $env:NANOBOT_AGENTS__DEFAULTS__MODEL = "ollama/qwen3.5:9b-86k"
 $env:OLLAMA_API_KEY = "local-no-key-required"
-$env:BRIDGE_PORT = "3001"
+
+# Teste de Conexão - Otimizado para não travar
+Write-Host "    -> Verificando Ollama ($OLLAMA_IP)..." -NoNewline
+$ollamaTest = Test-NetConnection -ComputerName $OLLAMA_IP -Port $OLLAMA_PORT -InformationLevel Quiet -WarningAction SilentlyContinue
+if ($ollamaTest) { 
+    Write-Host " [OK]" -ForegroundColor Green 
+} else { 
+    Write-Host " [FALHA] - Verifique sua conexão VPN!" -ForegroundColor Red -BackgroundColor Black
+}
+
+Write-Host "    -> Verificando Whisper ($WHISPER_IP)..." -NoNewline
+$whisperTest = Test-NetConnection -ComputerName $WHISPER_IP -Port $WHISPER_PORT -InformationLevel Quiet -WarningAction SilentlyContinue
+if ($whisperTest) { 
+    Write-Host " [OK]" -ForegroundColor Green 
+} else { 
+    Write-Host " [FALHA] - Verifique sua conexão VPN!" -ForegroundColor Red -BackgroundColor Black
+}
 
 # Telegram (Para conectar, coloque seu token abaixo e mude para "true")
 $env:TELEGRAM_ENABLED = "false"
