@@ -37,28 +37,68 @@ export class BridgeServer {
       let body = '';
       if (!this.currentQR) {
         body = `
-          <div style="text-align:center; font-family:sans-serif; margin-top:50px;">
-            <h2>🐈 Nanobot WhatsApp Bridge</h2>
-            <p>Aguardando QR Code... Por favor, aguarde alguns segundos.</p>
-            <p style="color:gray;">Se o status do WhatsApp estiver como "conectado", feche esta aba.</p>
+          <div style="text-align:center; font-family:sans-serif; margin-top:50px; color:#1c1e21;">
+            <div style="font-size:40px; margin-bottom:20px;">🐈</div>
+            <h2 style="font-weight:600;">Nanobot WhatsApp Bridge</h2>
+            <p style="color:#65676b;">Aguardando QR Code... Por favor, aguarde alguns segundos.</p>
+            <p style="font-size:12px; color:#afb3b8; margin-top:20px;">O sistema está iniciando a conexão com os servidores do WhatsApp.</p>
+            <div style="margin:20px auto; width:40px; height:40px; border:4px solid #f3f3f3; border-top:4px solid #00a884; border-radius:50%; animation:spin 1s linear infinite;"></div>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
             <script>setTimeout(() => location.reload(), 3000);</script>
           </div>
         `;
       } else {
         body = `
-          <div style="text-align:center; font-family:sans-serif; margin-top:30px;">
-            <h2>🐈 Escaneie para Conectar</h2>
-            <p>Abra seu WhatsApp > Configurações > Aparelhos Conectados > Conectar um aparelho</p>
-            <div style="display:inline-block; background:white; padding:20px; border:1px solid #ccc; margin:20px 0;">
-              <pre style="font-family:monospace; line-height:1; font-size:10px; background:white; color:black;">${this.currentQR}</pre>
+          <div style="text-align:center; font-family:sans-serif; margin-top:40px; color:#1c1e21;">
+            <div style="font-size:40px; margin-bottom:10px;">🐈</div>
+            <h2 style="font-weight:600; margin-bottom:5px;">Escaneie para Conectar</h2>
+            <p style="color:#65676b; margin-bottom:25px;">Abra o WhatsApp no seu celular e escaneie o código abaixo</p>
+            
+            <div id="qrcode-container" style="display:inline-block; background:white; padding:30px; border-radius:15px; box-shadow:0 10px 25px rgba(0,0,0,0.1); margin-bottom:25px;">
+              <div id="qrcode"></div>
+              <noscript><p style="color:red;">JavaScript é necessário para ver o QR Code aqui.</p></noscript>
             </div>
-            <p>O QR Code será atualizado automaticamente se expirar.</p>
-            <script>setTimeout(() => location.reload(), 5000);</script>
+
+            <div style="max-width:400px; margin:0 auto; text-align:left; background:#fff; padding:20px; border-radius:10px; font-size:14px; color:#4a4a4a; line-height:1.5; border:1px solid #e1e4e8;">
+               <strong>Como conectar:</strong>
+               <ol style="padding-left:20px; margin-top:10px;">
+                 <li>Abra o WhatsApp no seu celular</li>
+                 <li>Toque em <b>Mais Opções</b> (Android) ou <b>Configurações</b> (iOS)</li>
+                 <li>Toque em <b>Aparelhos Conectados</b></li>
+                 <li>Toque em <b>Conectar um Aparelho</b> e aponte para esta tela</li>
+               </ol>
+            </div>
+
+            <p style="font-size:12px; color:#a0a0a0; margin-top:30px;">O QR Code será atualizado automaticamente se expirar.</p>
+            
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+            <script>
+              new QRCode(document.getElementById("qrcode"), {
+                text: "${this.currentQR}",
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+              });
+              setTimeout(() => location.reload(), 15000);
+            </script>
           </div>
         `;
       }
       
-      res.end(`<html><head><title>Nanobot - WhatsApp Login</title></head><body style="background:#f0f2f5;">${body}</body></html>`);
+      res.end(\`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Nanobot - WhatsApp Login</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="background:#f0f2f5; margin:0; display:flex; justify-content:center; align-items:start; min-height:100vh;">
+          \${body}
+        </body>
+        </html>
+      \`);
     });
 
     httpServer.listen(webPort, '0.0.0.0', () => {
