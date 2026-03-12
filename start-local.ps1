@@ -91,9 +91,9 @@ try {
     Write-Host " [FALHA] - Servidor não respondeu!" -ForegroundColor Red -BackgroundColor Black
 }
 
-# Telegram (Para conectar, coloque seu token abaixo e mude para "true")
-$env:TELEGRAM_ENABLED = "false"
-$env:TELEGRAM_TOKEN = ""
+# Telegram (Ativado com o token fornecido)
+$env:TELEGRAM_ENABLED = "true"
+$env:TELEGRAM_TOKEN = "8436144323:AAEPjla33hAsODgtXYcWTpaP8A9P_xeizoI"
 $env:TELEGRAM_ALLOW_FROM = "*"
 
 # 6. Iniciar Nanobot
