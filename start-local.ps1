@@ -65,20 +65,20 @@ $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
 $env:BRIDGE_PORT = "3001"
 
 # Endereços dos serviços (Públicos via Reverse Proxy)
-$OLLAMA_URL = "https://ollama.rasys.net.br"
+$OLLAMA_BASE = "https://ollama.rasys.net.br/v1"
 $WHISPER_URL = "https://whisper.rasys.net.br/v1/audio/transcriptions"
 
-# Configurações para o Nanobot
-$env:NANOBOT_PROVIDERS__OLLAMA__API_BASE = "$OLLAMA_URL"
-$env:OLLAMA_API_BASE = $env:NANOBOT_PROVIDERS__OLLAMA__API_BASE
+# Configurações para o Nanobot (Usando modo compatível OpenAI para evitar bug de resposta vazia)
+$env:OLLAMA_API_BASE = "$OLLAMA_BASE"
 $env:WHISPER_API_URL = "$WHISPER_URL"
-$env:NANOBOT_AGENTS__DEFAULTS__MODEL = "ollama/qwen3.5:9b-86k"
-$env:OLLAMA_API_KEY = "local-no-key-required"
+$env:NANOBOT_AGENTS__DEFAULTS__MODEL = "openai/qwen3.5:9b-86k"
+$env:OPENAI_API_BASE = "$OLLAMA_BASE"
+$env:OPENAI_API_KEY = "local-no-key-required"
 
-# Teste de Conexão - Otimizado para não travar
-Write-Host "    -> Verificando Ollama ($OLLAMA_URL)..." -NoNewline
+# Teste de Conexão
+Write-Host "    -> Verificando Ollama ($OLLAMA_BASE)..." -NoNewline
 try {
-    $ollamaTest = Invoke-WebRequest -Uri $OLLAMA_URL -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+    $ollamaTest = Invoke-WebRequest -Uri "$OLLAMA_BASE/models" -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($ollamaTest.StatusCode -eq 200) { Write-Host " [OK]" -ForegroundColor Green } else { Write-Host " [Aviso: $($ollamaTest.StatusCode)]" -ForegroundColor Yellow }
 } catch {
     Write-Host " [FALHA] - Servidor não respondeu!" -ForegroundColor Red -BackgroundColor Black
