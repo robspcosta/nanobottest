@@ -87,7 +87,7 @@ export class BridgeServer {
         `;
       }
       
-      res.end(\`
+      res.end(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -95,14 +95,14 @@ export class BridgeServer {
           <meta name="viewport" content="width=device-width, initial-scale=1">
         </head>
         <body style="background:#f0f2f5; margin:0; display:flex; justify-content:center; align-items:start; min-height:100vh;">
-          \${body}
+          ${body}
         </body>
         </html>
-      \`);
+      `);
     });
 
     httpServer.listen(webPort, '0.0.0.0', () => {
-      console.log(`🌐 Web interface for QR Code: http://localhost:${webPort}`);
+      console.log(`Web interface for QR Code: http://localhost:${webPort}`);
     });
 
     // 2. Start WebSocket Server
