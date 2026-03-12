@@ -64,34 +64,32 @@ $env:WHATSAPP_ALLOW_FROM = "*"
 $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
 $env:BRIDGE_PORT = "3001"
 
-# Endereços dos serviços (Ajuste se necessário)
-$OLLAMA_IP = "172.16.50.37"
-$OLLAMA_PORT = 11434
-$WHISPER_IP = "172.16.51.5"
-$WHISPER_PORT = 8000
+# Endereços dos serviços (Públicos via Reverse Proxy)
+$OLLAMA_URL = "https://ollama.rasys.net.br"
+$WHISPER_URL = "https://whisper.rasys.net.br/v1/audio/transcriptions"
 
 # Configurações para o Nanobot
-$env:NANOBOT_PROVIDERS__OLLAMA__API_BASE = "http://$($OLLAMA_IP):$($OLLAMA_PORT)"
+$env:NANOBOT_PROVIDERS__OLLAMA__API_BASE = "$OLLAMA_URL"
 $env:OLLAMA_API_BASE = $env:NANOBOT_PROVIDERS__OLLAMA__API_BASE
-$env:WHISPER_API_URL = "http://$($WHISPER_IP):$($WHISPER_PORT)/v1/audio/transcriptions"
+$env:WHISPER_API_URL = "$WHISPER_URL"
 $env:NANOBOT_AGENTS__DEFAULTS__MODEL = "ollama/qwen3.5:9b-86k"
 $env:OLLAMA_API_KEY = "local-no-key-required"
 
 # Teste de Conexão - Otimizado para não travar
-Write-Host "    -> Verificando Ollama ($OLLAMA_IP)..." -NoNewline
-$ollamaTest = Test-NetConnection -ComputerName $OLLAMA_IP -Port $OLLAMA_PORT -InformationLevel Quiet -WarningAction SilentlyContinue
-if ($ollamaTest) { 
-    Write-Host " [OK]" -ForegroundColor Green 
-} else { 
-    Write-Host " [FALHA] - Verifique sua conexão VPN!" -ForegroundColor Red -BackgroundColor Black
+Write-Host "    -> Verificando Ollama ($OLLAMA_URL)..." -NoNewline
+try {
+    $ollamaTest = Invoke-WebRequest -Uri $OLLAMA_URL -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+    if ($ollamaTest.StatusCode -eq 200) { Write-Host " [OK]" -ForegroundColor Green } else { Write-Host " [Aviso: $($ollamaTest.StatusCode)]" -ForegroundColor Yellow }
+} catch {
+    Write-Host " [FALHA] - Servidor não respondeu!" -ForegroundColor Red -BackgroundColor Black
 }
 
-Write-Host "    -> Verificando Whisper ($WHISPER_IP)..." -NoNewline
-$whisperTest = Test-NetConnection -ComputerName $WHISPER_IP -Port $WHISPER_PORT -InformationLevel Quiet -WarningAction SilentlyContinue
-if ($whisperTest) { 
-    Write-Host " [OK]" -ForegroundColor Green 
-} else { 
-    Write-Host " [FALHA] - Verifique sua conexão VPN!" -ForegroundColor Red -BackgroundColor Black
+Write-Host "    -> Verificando Whisper ($WHISPER_URL)..." -NoNewline
+try {
+    $whisperTest = Invoke-WebRequest -Uri "$($WHISPER_URL.Replace('/v1/audio/transcriptions', '/docs'))" -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
+    if ($whisperTest.StatusCode -eq 200) { Write-Host " [OK]" -ForegroundColor Green } else { Write-Host " [Aviso: $($whisperTest.StatusCode)]" -ForegroundColor Yellow }
+} catch {
+    Write-Host " [FALHA] - Servidor não respondeu!" -ForegroundColor Red -BackgroundColor Black
 }
 
 # Telegram (Para conectar, coloque seu token abaixo e mude para "true")
