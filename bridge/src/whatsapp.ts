@@ -17,6 +17,7 @@ import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { Buffer } from 'node:buffer';
+import * as fs from 'fs';
 
 const VERSION = '0.1.0';
 
@@ -100,12 +101,10 @@ export class WhatsAppClient {
         if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
           console.log('❌ Session expired or unauthorized. Clearing authentication data...');
           try {
-            import('fs').then(fs => {
-              if (fs.existsSync(this.options.authDir)) {
-                fs.rmSync(this.options.authDir, { recursive: true, force: true });
-                console.log('✅ Auth data cleared. Please restart to scan new QR code.');
-              }
-            });
+            if (fs.existsSync(this.options.authDir)) {
+              fs.rmSync(this.options.authDir, { recursive: true, force: true });
+              console.log('✅ Auth data cleared. Please restart to scan new QR code.');
+            }
           } catch (e) {
             console.error('Failed to clear auth dir:', e);
           }

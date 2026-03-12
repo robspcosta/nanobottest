@@ -5,6 +5,8 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { WhatsAppClient, InboundMessage } from './whatsapp.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface SendCommand {
   type: 'send';
