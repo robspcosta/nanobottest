@@ -750,10 +750,10 @@ def _get_bridge_dir() -> Path:
     import shutil
     import subprocess
 
-    # Check for pre-built bridge in Docker container FIRST (always fresh from build)
-    app_bridge = Path("/app/bridge")
-    if (app_bridge / "dist" / "index.js").exists():
-        return app_bridge
+    # Prioritize LOCAL REPOSITORY bridge (next to 'nanobot' folder)
+    src_bridge = Path(__file__).parent.parent.parent / "bridge"
+    if (src_bridge / "dist" / "index.js").exists():
+        return src_bridge
 
     # User's bridge location (cached from previous runs)
     user_bridge = Path.home() / ".nanobot" / "bridge"

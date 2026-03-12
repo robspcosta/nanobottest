@@ -67,7 +67,9 @@ $env:BRIDGE_PORT = "3001"
 # 6. Iniciar Nanobot
 Write-Host ""
 Write-Host "=== Iniciando Nanobot Gateway ===" -ForegroundColor Green
-Write-Host "O QR CODE aparecerá abaixo em instantes." -ForegroundColor Yellow
+Write-Host "O QR CODE aparecerá abaixo no terminal." -ForegroundColor Yellow
+Write-Host ">>> POSSIBILIDADE CERTEIRA: Se o QR Code falhar no terminal, abra:" -ForegroundColor Cyan
+Write-Host ">>> http://localhost:3002" -ForegroundColor White -BackgroundColor Blue
 Write-Host ""
 
 $NANOBOT_EXE = Join-Path $VENV_DIR "Scripts\nanobot.exe"

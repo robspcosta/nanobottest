@@ -7,6 +7,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { WhatsAppClient, InboundMessage } from './whatsapp.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as http from 'http';
 
 interface SendCommand {
   type: 'send';
@@ -23,11 +24,48 @@ export class BridgeServer {
   private wss: WebSocketServer | null = null;
   private wa: WhatsAppClient | null = null;
   private clients: Set<WebSocket> = new Set();
+  private currentQR: string | null = null;
 
   constructor(private port: number, private authDir: string, private token?: string) { }
 
   async start(): Promise<void> {
-    // Bind to 0.0.0.0 for Docker compatibility, or use BRIDGE_HOST env var.
+    // 1. Start HTTP Server for QR Code display (Web Interface)
+    const webPort = parseInt(process.env.BRIDGE_WEB_PORT || '3002', 10);
+    const httpServer = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      
+      let body = '';
+      if (!this.currentQR) {
+        body = `
+          <div style="text-align:center; font-family:sans-serif; margin-top:50px;">
+            <h2>🐈 Nanobot WhatsApp Bridge</h2>
+            <p>Aguardando QR Code... Por favor, aguarde alguns segundos.</p>
+            <p style="color:gray;">Se o status do WhatsApp estiver como "conectado", feche esta aba.</p>
+            <script>setTimeout(() => location.reload(), 3000);</script>
+          </div>
+        `;
+      } else {
+        body = `
+          <div style="text-align:center; font-family:sans-serif; margin-top:30px;">
+            <h2>🐈 Escaneie para Conectar</h2>
+            <p>Abra seu WhatsApp > Configurações > Aparelhos Conectados > Conectar um aparelho</p>
+            <div style="display:inline-block; background:white; padding:20px; border:1px solid #ccc; margin:20px 0;">
+              <pre style="font-family:monospace; line-height:1; font-size:10px; background:white; color:black;">${this.currentQR}</pre>
+            </div>
+            <p>O QR Code será atualizado automaticamente se expirar.</p>
+            <script>setTimeout(() => location.reload(), 5000);</script>
+          </div>
+        `;
+      }
+      
+      res.end(`<html><head><title>Nanobot - WhatsApp Login</title></head><body style="background:#f0f2f5;">${body}</body></html>`);
+    });
+
+    httpServer.listen(webPort, '0.0.0.0', () => {
+      console.log(`🌐 Web interface for QR Code: http://localhost:${webPort}`);
+    });
+
+    // 2. Start WebSocket Server
     const host = process.env.BRIDGE_HOST || '0.0.0.0';
     this.wss = new WebSocketServer({ host, port: this.port });
     console.log(`🌉 Bridge server listening on ws://${host}:${this.port}`);
@@ -37,8 +75,14 @@ export class BridgeServer {
     this.wa = new WhatsAppClient({
       authDir: this.authDir,
       onMessage: (msg) => this.broadcast({ type: 'message', ...msg }),
-      onQR: (qr) => this.broadcast({ type: 'qr', qr }),
-      onStatus: (status) => this.broadcast({ type: 'status', status }),
+      onQR: (qr) => {
+        this.currentQR = qr;
+        this.broadcast({ type: 'qr', qr });
+      },
+      onStatus: (status) => {
+        if (status === 'connected') this.currentQR = null;
+        this.broadcast({ type: 'status', status });
+      },
     });
 
     // Handle WebSocket connections
