@@ -68,18 +68,17 @@ $env:BRIDGE_PORT = "3001"
 $OLLAMA_BASE = "https://ollama.rasys.net.br/v1"
 $WHISPER_URL = "https://whisper.rasys.net.br/v1/audio/transcriptions"
 
-# Configurações para o Nanobot (Usando modo compatível OpenAI para evitar bug de resposta vazia)
-$env:OLLAMA_API_BASE = "$OLLAMA_BASE"
+# Configurações para o Nanobot (Modo Custom/Direct para máxima estabilidade)
+$env:NANOBOT_AGENTS__DEFAULTS__MODEL = "custom/qwen3.5:9b-86k"
+$env:NANOBOT_PROVIDERS__CUSTOM__API_BASE = "$OLLAMA_BASE"
+$env:NANOBOT_PROVIDERS__CUSTOM__API_KEY = "local-no-key-required"
 $env:WHISPER_API_URL = "$WHISPER_URL"
-$env:NANOBOT_AGENTS__DEFAULTS__MODEL = "openai/qwen3.5:9b-86k"
-$env:OPENAI_API_BASE = "$OLLAMA_BASE"
-$env:OPENAI_API_KEY = "local-no-key-required"
 
 # Teste de Conexão
 Write-Host "    -> Verificando Ollama ($OLLAMA_BASE)..." -NoNewline
 try {
     $ollamaTest = Invoke-WebRequest -Uri "$OLLAMA_BASE/models" -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
-    if ($ollamaTest.StatusCode -eq 200) { Write-Host " [OK]" -ForegroundColor Green } else { Write-Host " [Aviso: $($ollamaTest.StatusCode)]" -ForegroundColor Yellow }
+    if ($ollamaTest.StatusCode -eq 200) { Write-Host " [OK]" -ForegroundColor Green } else { Write-Host " [Status: $($ollamaTest.StatusCode)]" -ForegroundColor Yellow }
 } catch {
     Write-Host " [FALHA] - Servidor não respondeu!" -ForegroundColor Red -BackgroundColor Black
 }
