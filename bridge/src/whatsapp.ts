@@ -96,6 +96,21 @@ export class WhatsAppClient {
         console.log(`Connection closed. Status: ${statusCode}, Will reconnect: ${shouldReconnect}`);
         this.options.onStatus('disconnected');
 
+        // If 401 (Unauthorized), the session is dead. Clear auth dir to force new QR.
+        if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
+          console.log('❌ Session expired or unauthorized. Clearing authentication data...');
+          try {
+            import('fs').then(fs => {
+              if (fs.existsSync(this.options.authDir)) {
+                fs.rmSync(this.options.authDir, { recursive: true, force: true });
+                console.log('✅ Auth data cleared. Please restart to scan new QR code.');
+              }
+            });
+          } catch (e) {
+            console.error('Failed to clear auth dir:', e);
+          }
+        }
+
         if (shouldReconnect && !this.reconnecting) {
           this.reconnecting = true;
           console.log('Reconnecting in 5 seconds...');
