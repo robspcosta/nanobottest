@@ -58,11 +58,17 @@ Set-Location "$PROJ_DIR"
 # 5. Configurar Ambiente
 $env:DATABASE_URL = "postgresql://nanobot:nanobot123@localhost:5432/nanobot"
 $env:WHATSAPP_ENABLED = "true"
+$env:WHATSAPP_ALLOW_FROM = "*"
 $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
 $env:WHISPER_API_URL = "http://172.16.51.5:8000/v1/audio/transcriptions"
 $env:NANOBOT_AGENTS__DEFAULTS__MODEL = "ollama/qwen3.5:9b-86k"
 $env:OLLAMA_API_KEY = "local-no-key-required"
 $env:BRIDGE_PORT = "3001"
+
+# Telegram (Para conectar, coloque seu token abaixo e mude para "true")
+$env:TELEGRAM_ENABLED = "false"
+$env:TELEGRAM_TOKEN = ""
+$env:TELEGRAM_ALLOW_FROM = "*"
 
 # 6. Iniciar Nanobot
 Write-Host ""

@@ -121,6 +121,13 @@ class WhatsAppChannel(BaseChannel):
 
         if msg_type == "message":
             # Incoming message from WhatsApp
+            # content can be empty for protocol messages (pinned, disappeared, etc.)
+            content = data.get("content", "")
+            media = data.get("media")
+            if not content.strip() and not media:
+                # logger.debug("Skipping empty message/protocol update from WhatsApp")
+                return
+
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatspp.net
             pn = data.get("pn", "")
             # New LID sytle typically:
