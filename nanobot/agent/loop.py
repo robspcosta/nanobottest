@@ -388,6 +388,11 @@ class AgentLoop:
         key = session_key or msg.session_key
         session = self.sessions.get_or_create(key)
 
+        if self.db:
+            # Ensure the sender exists in the database so foreign key constraints 
+            # (like in manage_contacts) don't fail, especially for local "*" users.
+            self.db.add_user(msg.channel, msg.sender_id, role="admin")
+
         # Slash commands
         cmd = msg.content.strip().lower()
         if cmd == "/new":
