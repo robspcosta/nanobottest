@@ -61,13 +61,13 @@ Write-Host "[5/5] Configurando ambiente e testando conectividade..." -Foreground
 $env:NANOBOT_DATABASE_URL = "postgresql://nanobot:nanobot123@localhost:5432/nanobot"
 $env:BRAVE_API_KEY = "" # Adicione sua chave aqui para pesquisa na web
 $env:WHATSAPP_ENABLED = "true"
-$env:WHATSAPP_ALLOW_FROM = "*"
+$env:WHATSAPP_ALLOW_FROM = "555196057577"
 $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
 $env:BRIDGE_PORT = "3001"
 
 # Endereços dos serviços (Públicos via Reverse Proxy)
 $OLLAMA_BASE = "https://ollama.rasys.net.br/v1"
-$WHISPER_URL = "https://whisper.rasys.net.br/v1/audio/transcriptions"
+$WHISPER_URL = "https://whisper.rasys.net.br/transcribe"
 
 # Configurações para o Nanobot (Modo Custom/Direct para máxima estabilidade)
 $env:NANOBOT_AGENTS__DEFAULTS__MODEL = "custom/qwen3.5:9b-86k"
@@ -95,7 +95,7 @@ try {
 # Telegram (Ativado com o token fornecido)
 $env:TELEGRAM_ENABLED = "true"
 $env:TELEGRAM_TOKEN = "8436144323:AAEPjla33hAsODgtXYcWTpaP8A9P_xeizoI"
-$env:TELEGRAM_ALLOW_FROM = "*"
+$env:TELEGRAM_ALLOW_FROM = "555196057577"
 
 # 6. Iniciar Nanobot
 Write-Host ""

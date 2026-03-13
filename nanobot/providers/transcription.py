@@ -75,15 +75,16 @@ class GeminiTranscriptionProvider:
 
 
 class WhisperLocalTranscriptionProvider:
-    """Voice transcription provider using a local Whisper API (OpenAI-compatible)."""
+    """Voice transcription provider using a local Whisper API."""
 
     def __init__(self, api_url: str | None = None, api_key: str | None = None):
         # Use internal URL from user if provided, otherwise check env
         base_url = api_url or os.environ.get("WHISPER_API_URL") or "http://172.16.51.5:8000"
         
-        # Ensure it points to the transcription endpoint
-        if "/v1/audio/transcriptions" not in base_url:
-            base_url = base_url.rstrip("/") + "/v1/audio/transcriptions"
+        # If the URL is just a domain/base, append a default, 
+        # but don't force it if they provided a specific path like /transcribe
+        if base_url.count("/") < 3: 
+             base_url = base_url.rstrip("/") + "/v1/audio/transcriptions"
             
         self.api_url = base_url
         self.api_key = api_key or os.environ.get("WHISPER_API_KEY", "sk-local")
@@ -93,13 +94,41 @@ class WhisperLocalTranscriptionProvider:
         try:
             async with httpx.AsyncClient() as client:
                 with open(path, "rb") as f:
-                    # Some local whisper implementations expect 'model' as well
-                    files = {"file": (path.name, f), "model": (None, "whisper-1")}
+                    # We try common field names: 'audio' (FastAPI/custom) and 'file' (OpenAI)
+                    # We'll try 'audio' first since the user's specific endpoint uses it
+                    field_name = "audio" if "/transcribe" in self.api_url else "file"
+                    
+                    files = {field_name: (path.name, f)}
+                    # Add model only if it's the OpenAI path
+                    if "/v1/" in self.api_url:
+                        files["model"] = (None, "whisper-1")
+                        
                     headers = {"Authorization": f"Bearer {self.api_key}"}
                     response = await client.post(self.api_url, headers=headers, files=files, timeout=120.0)
                     response.raise_for_status()
-                    return response.json().get("text", "")
+                    
+                    # Handle both JSON {"text": "..."} and direct plain text
+                    content_type = response.headers.get("content-type", "")
+                    if "application/json" in content_type:
+                        return response.json().get("text", "")
+                    else:
+                        return response.text.strip()
         except Exception as e:
+            # If 'audio' fails, try 'file' as a fallback if not already tried
+            if "field_name" in locals() and field_name == "audio":
+                 try:
+                    async with httpx.AsyncClient() as client:
+                        with open(path, "rb") as f:
+                            files = {"file": (path.name, f)}
+                            headers = {"Authorization": f"Bearer {self.api_key}"}
+                            response = await client.post(self.api_url, headers=headers, files=files, timeout=120.0)
+                            if response.status_code == 200:
+                                if "application/json" in response.headers.get("content-type", ""):
+                                    return response.json().get("text", "")
+                                return response.text.strip()
+                 except:
+                     pass
+            
             logger.error("Local Whisper transcription error: {}", e)
             return ""
 
