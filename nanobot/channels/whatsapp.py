@@ -253,12 +253,13 @@ class WhatsAppChannel(BaseChannel):
 
             await self._handle_message(
                 sender_id=sender_id,
-                chat_id=sender,  # Use full LID for replies
+                chat_id=sender_id,  # Use normalized phone number for consistency
                 content=content,
                 metadata={
                     "message_id": message_id,
                     "timestamp": data.get("timestamp"),
-                    "is_group": data.get("isGroup", False)
+                    "is_group": data.get("isGroup", False),
+                    "jid": sender  # Keep full JID in metadata if needed
                 }
             )
 
