@@ -42,7 +42,7 @@ Write-Host "[3/5] Ativando ambiente e instalando dependências..." -ForegroundCo
 $VENV_ACTIVATE = Join-Path $VENV_DIR "Scripts\Activate.ps1"
 & "$VENV_ACTIVATE"
 python.exe -m pip install --upgrade pip --quiet
-pip install -e "$PROJ_DIR" --quiet
+pip install -e "$PROJ_DIR" psycopg2-binary --quiet
 
 # 4. WhatsApp Bridge Build
 Write-Host "[4/5] Preparando Bridge do WhatsApp..." -ForegroundColor Cyan
