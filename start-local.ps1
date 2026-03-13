@@ -58,7 +58,8 @@ Set-Location "$PROJ_DIR"
 # 5. Configurar Ambiente e Testar Conectividade
 Write-Host "[5/5] Configurando ambiente e testando conectividade..." -ForegroundColor Cyan
 
-$env:DATABASE_URL = "postgresql://nanobot:nanobot123@localhost:5432/nanobot"
+$env:NANOBOT_DATABASE_URL = "postgresql://nanobot:nanobot123@localhost:5432/nanobot"
+$env:BRAVE_API_KEY = "" # Adicione sua chave aqui para pesquisa na web
 $env:WHATSAPP_ENABLED = "true"
 $env:WHATSAPP_ALLOW_FROM = "*"
 $env:WHATSAPP_BRIDGE_URL = "ws://localhost:3001"
