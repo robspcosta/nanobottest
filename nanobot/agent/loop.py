@@ -25,6 +25,7 @@ from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.shell import ExecTool
 from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.tasks import TaskTool
+from nanobot.agent.tools.users import UserTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
@@ -142,6 +143,7 @@ class AgentLoop:
         self.tools.register(KnowledgeTool(db=self.db, embed_callback=self.provider.embed))
         self.tools.register(ContactTool(db=self.db))
         self.tools.register(AudioTool())
+        self.tools.register(UserTool(db=self.db))
 
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))
@@ -171,7 +173,8 @@ class AgentLoop:
     def _set_tool_context(self, channel: str, chat_id: str, message_id: str | None = None) -> None:
         """Update context for all tools that need routing info or user isolation."""
         for name in ("message", "spawn", "cron", "manage_tasks", "manage_knowledge", 
-                     "read_file", "write_file", "edit_file", "list_dir", "exec", "manage_contacts"):
+                     "read_file", "write_file", "edit_file", "list_dir", "exec", 
+                     "manage_contacts", "manage_access"):
             if tool := self.tools.get(name):
                 if hasattr(tool, "set_context"):
                     tool.set_context(channel, chat_id, *([message_id] if name == "message" else []))
