@@ -26,9 +26,9 @@ class ContactTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Save, search, or list personal contacts. "
+            "Save, search, delete, or list personal contacts. "
             "Allows looking up platform IDs (phone numbers or usernames) by name for messaging. "
-            "Actions: 'save' (requires name, platform, external_id), 'search' (requires name), 'list'."
+            "Actions: 'save' (requires name, platform, external_id), 'search' (requires name), 'delete' (requires name), 'list'."
         )
 
     @property
@@ -38,12 +38,12 @@ class ContactTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["save", "search", "list"],
+                    "enum": ["save", "search", "list", "delete"],
                     "description": "The action to perform.",
                 },
                 "name": {
                     "type": "string",
-                    "description": "The name of the contact (for 'save' and 'search').",
+                    "description": "The name of the contact (for 'save', 'search', and 'delete').",
                 },
                 "platform": {
                     "type": "string",
@@ -94,5 +94,12 @@ class ContactTool(Tool):
                 return "You have no saved contacts."
             lines = [f"- {c['name']}: {c['platform']} ({c['external_id']})" for c in contacts]
             return "Your contacts:\n" + "\n".join(lines)
+
+        elif action == "delete":
+            if not name:
+                return "Error: Missing name for 'delete' action."
+            if self.db.delete_contact(self.channel, self.chat_id, name):
+                return f"Contact '{name}' deleted successfully."
+            return f"Contact '{name}' not found."
 
         return f"Unknown action: {action}"

@@ -191,13 +191,6 @@ class WhatsAppChannel(BaseChannel):
                         if transcript:
                             content = f"[Voice Message] {transcript}"
                             logger.info("Transcription: {}", transcript)
-                            # Optional: Send a small hint back to the user that we are analyzing
-                            await self.bus.publish_outbound(OutboundMessage(
-                                channel=self.name,
-                                chat_id=sender_id,
-                                content="✅ _Áudio recebido e transcrito. Analisando..._",
-                                metadata={"_progress": True}
-                            ))
                         else:
                             content = "[Voice Message: Transcription failed]"
                     except Exception as e:

@@ -313,3 +313,15 @@ class DatabaseManager:
                 }
                 for c in contacts
             ]
+    def delete_contact(self, owner_platform: str, owner_id: str, name: str) -> bool:
+        """Delete a contact by name."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            stmt = select(Contact).where(Contact.owner_id == full_owner_id, func.lower(Contact.name) == name.lower())
+            contact = session.execute(stmt).scalar_one_or_none()
+            if contact:
+                session.delete(contact)
+                session.commit()
+                logger.info("Deleted contact '{}' for user {}", name, full_owner_id)
+                return True
+            return False
