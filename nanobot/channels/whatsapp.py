@@ -197,7 +197,34 @@ class WhatsAppChannel(BaseChannel):
                         logger.error("Failed to transcribe WhatsApp audio: {}", e)
                         content = "[Voice Message: Error during transcription]"
                 elif media_type == "image":
-                    content = f"[Image: {content or 'No caption'}]"
+                    import base64
+                    import tempfile
+                    from PIL import Image
+                    import pytesseract
+                    import io
+                    
+                    try:
+                        image_data = base64.b64decode(media.get("data"))
+                        img = Image.open(io.BytesIO(image_data))
+                        
+                        logger.info("Performing OCR on image from {}...", sender_id)
+                        # Extract text in Portuguese and English
+                        ocr_text = pytesseract.image_to_string(img, lang="por+eng").strip()
+                        
+                        if ocr_text:
+                            content = (
+                                f"{content or ''}\n\n"
+                                f"🖼️ [Conteúdo da Imagem (OCR)]:\n"
+                                f"--------------------------\n"
+                                f"{ocr_text}\n"
+                                f"--------------------------"
+                            ).strip()
+                            logger.info("OCR Result: {} chars", len(ocr_text))
+                        else:
+                            content = f"[Image: {content or 'No caption'} (Low quality/No text found)]"
+                    except Exception as e:
+                        logger.error("Failed to perform OCR on WhatsApp image: {}", e)
+                        content = f"[Image: {content or 'No caption'} (OCR Error)]"
 
             # Secretary Mode: Forward incoming message to the owner's Telegram
             if self.config.secretary_mode and self.config.secretary_target:

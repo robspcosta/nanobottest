@@ -16,6 +16,8 @@ from nanobot.agent.context import ContextBuilder
 from nanobot.agent.memory import MemoryStore
 from nanobot.agent.subagent import SubagentManager
 from nanobot.agent.tools.audio import AudioTool
+from nanobot.agent.tools.finance import FinanceTrackerTool
+from nanobot.agent.tools.extra import SystemStatusTool, WeatherTool, FinanceTool, NewsTool
 from nanobot.agent.tools.contacts import ContactTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
@@ -144,6 +146,11 @@ class AgentLoop:
         self.tools.register(ContactTool(db=self.db))
         self.tools.register(AudioTool())
         self.tools.register(UserTool(db=self.db))
+        self.tools.register(SystemStatusTool())
+        self.tools.register(WeatherTool())
+        self.tools.register(FinanceTool())
+        self.tools.register(NewsTool())
+        self.tools.register(FinanceTrackerTool(db=self.db))
 
         if self.cron_service:
             self.tools.register(CronTool(self.cron_service))

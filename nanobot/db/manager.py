@@ -24,6 +24,7 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     contacts = relationship("Contact", back_populates="owner", cascade="all, delete-orphan")
+    finance_records = relationship("FinanceRecord", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Contact(Base):
@@ -50,6 +51,21 @@ class Knowledge(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User")
+
+
+class FinanceRecord(Base):
+    __tablename__ = "finance_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(String, ForeignKey("users.id"), index=True)
+    amount = Column(Integer) # In cents or using numeric
+    category = Column(String, index=True)
+    description = Column(String)
+    type = Column(String) # 'income' or 'expense'
+    date = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User", back_populates="finance_records")
 
 
 class DatabaseManager:
@@ -325,3 +341,35 @@ class DatabaseManager:
                 logger.info("Deleted contact '{}' for user {}", name, full_owner_id)
                 return True
             return False
+    def add_finance_record(self, owner_platform: str, owner_id: str, amount: int, type: str, category: str, description: str = "") -> bool:
+        """Add a financial record."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            record = FinanceRecord(
+                owner_id=full_owner_id,
+                amount=amount,
+                type=type,
+                category=category,
+                description=description
+            )
+            session.add(record)
+            session.commit()
+            return True
+
+    def get_finance_summary(self, owner_platform: str, owner_id: str) -> dict[str, Any]:
+        """Get summary of income and expenses."""
+        full_owner_id = f"{owner_platform}:{owner_id}"
+        with self.SessionLocal() as session:
+            # Total income
+            inc_stmt = select(func.sum(FinanceRecord.amount)).where(FinanceRecord.owner_id == full_owner_id, FinanceRecord.type == "income")
+            income = session.execute(inc_stmt).scalar() or 0
+            
+            # Total expense
+            exp_stmt = select(func.sum(FinanceRecord.amount)).where(FinanceRecord.owner_id == full_owner_id, FinanceRecord.type == "expense")
+            expense = session.execute(exp_stmt).scalar() or 0
+            
+            return {
+                "total_income": float(income),
+                "total_expense": float(expense),
+                "balance": float(income - expense)
+            }
